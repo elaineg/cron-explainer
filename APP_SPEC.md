@@ -53,4 +53,4 @@ Out of scope:
 - Accounts, saved expressions, history, sharing links, rate limiting, or any persistence.
 - Explaining crontab files with multiple lines or environment variables.
 
-Production URL: TBD — filled in by deployer
+Production URL: https://cron-explainer-xi.vercel.app
