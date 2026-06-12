@@ -1,7 +1,40 @@
 import { describe, it, expect } from "vitest";
-import { explainCron, CronError } from "@/lib/cron";
+import { explainCron, decodeExpressionParam, CronError } from "@/lib/cron";
 
 const FROM = new Date("2026-06-11T12:00:00.000Z");
+
+describe("decodeExpressionParam — permalink path segments", () => {
+  it("decodes a fully percent-encoded expression exactly once", () => {
+    expect(decodeExpressionParam("%2A%2F10%20%2A%20%2A%20%2A%20%2A")).toBe(
+      "*/10 * * * *"
+    );
+  });
+
+  it("decodes encodeURIComponent output (the format the UI links to)", () => {
+    expect(decodeExpressionParam(encodeURIComponent("0 9 * * MON-FRI"))).toBe(
+      "0 9 * * MON-FRI"
+    );
+  });
+
+  it("is the identity on already-decoded expressions (no double decode)", () => {
+    expect(decodeExpressionParam("*/10 * * * *")).toBe("*/10 * * * *");
+    expect(decodeExpressionParam("banana")).toBe("banana");
+  });
+
+  it("returns malformed percent sequences unchanged instead of throwing", () => {
+    expect(decodeExpressionParam("%E0%A4%A")).toBe("%E0%A4%A");
+    expect(decodeExpressionParam("100%")).toBe("100%");
+  });
+
+  it("round-trips with explainCron for a valid encoded expression", () => {
+    const { description } = explainCron(
+      decodeExpressionParam("%40daily"),
+      5,
+      FROM
+    );
+    expect(description.toLowerCase()).toContain("midnight");
+  });
+});
 
 describe("explainCron — valid expressions", () => {
   it("explains */10 * * * * as every 10 minutes with 5 runs spaced 10 min apart", () => {

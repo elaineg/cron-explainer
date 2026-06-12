@@ -19,6 +19,12 @@ Core flows:
    `{ "expression": string, "description": string, "next": [5 ISO 8601 UTC timestamps] }`
    with status 200, or `{ "error": string }` with status 400 for invalid input. The home
    page links to or documents this endpoint in one line.
+4. Shareable permalinks: whenever the current input is a valid expression, the page shows a
+   copyable permalink of the form `<origin>/e/<url-encoded-expression>` with a copy button.
+   Opening that URL renders the app pre-filled with the expression, its English explanation,
+   and next 5 run times already shown — no extra interaction needed. Invalid or garbage
+   `/e/...` paths render the app with the raw string in the input and the normal inline
+   error (no crash, no 500).
 
 Builder decisions (binding):
 - Support standard 5-field cron (minute hour day-of-month month day-of-week), including
@@ -45,12 +51,21 @@ Success checks:
   `description` containing "every 10 minutes" (case-insensitive) and a `next` array of
   exactly 5 ISO 8601 timestamps spaced 10 minutes apart.
 - `curl "<prod>/api/explain?expr=banana"` returns HTTP 400 with a JSON `error` field.
+- After typing `0 9 * * MON-FRI`, the page shows a permalink ending in
+  `/e/0%209%20*%20*%20MON-FRI` (or an equivalent encoding of the same expression) and a
+  copy control that puts that absolute URL on the clipboard.
+- `curl "<prod>/e/%2A%2F10%20%2A%20%2A%20%2A%20%2A"` returns HTTP 200 and the served HTML
+  contains the description text for `*/10 * * * *` (i.e. "every 10 minutes" pre-rendered,
+  case-insensitive).
+- Visiting `<prod>/e/banana` in a browser shows "banana" in the input plus the inline
+  invalid-expression error; the response status is not a 5xx.
 
 Out of scope:
 - Building cron expressions from English (reverse direction) or any visual cron builder.
 - 6/7-field cron (seconds, years), Quartz syntax, `@reboot`, and non-standard macros.
 - Timezone picker / showing runs in arbitrary zones (local + UTC-in-API only).
-- Accounts, saved expressions, history, sharing links, rate limiting, or any persistence.
+- Accounts, saved expressions, history, rate limiting, or any persistence. (Sharing is
+  permalinks only — no short links, no stored state.)
 - Explaining crontab files with multiple lines or environment variables.
 
 Production URL: https://cron-explainer-xi.vercel.app

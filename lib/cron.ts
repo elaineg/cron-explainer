@@ -20,6 +20,23 @@ export interface CronExplanation {
   next: Date[];
 }
 
+/**
+ * Decode a cron expression that arrived as a URL path segment (e.g. from the
+ * /e/[expr] route). Decodes percent-escapes exactly once; if the segment is
+ * not valid percent-encoding (stray `%`), returns it unchanged so the parser
+ * can produce the normal inline error instead of the page crashing.
+ *
+ * Safe even if the framework already decoded the segment: valid cron
+ * expressions never contain `%`, so a second decode is the identity.
+ */
+export function decodeExpressionParam(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 function reasonFrom(e: unknown): string {
   // cronstrue throws plain strings; cron-parser throws Errors.
   const raw = e instanceof Error ? e.message : String(e);
