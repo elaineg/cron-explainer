@@ -3,6 +3,7 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { explainCron, CronError } from "@/lib/cron";
+import { englishToCron, EnglishError, EXAMPLE_PHRASES } from "@/lib/english";
 
 const EXAMPLE = "*/15 9-17 * * MON-FRI";
 
@@ -62,7 +63,39 @@ export default function Explainer({
   serverError?: string | null;
 }) {
   const [input, setInput] = useState(initialExpression ?? EXAMPLE);
+  const [english, setEnglish] = useState("");
   const [copied, setCopied] = useState(false);
+
+  // Derived (not state): re-parse the English phrase for display. The actual
+  // cron input update happens in the change handler so typing in the cron
+  // input directly never touches the English input (one direction only).
+  const englishResult = useMemo<{
+    cron: string | null;
+    error: string | null;
+  }>(() => {
+    if (!english.trim()) return { cron: null, error: null };
+    try {
+      return { cron: englishToCron(english), error: null };
+    } catch (e) {
+      return {
+        cron: null,
+        error:
+          e instanceof EnglishError
+            ? e.message
+            : "Couldn't understand that schedule.",
+      };
+    }
+  }, [english]);
+
+  function onEnglishChange(value: string) {
+    setEnglish(value);
+    if (!value.trim()) return;
+    try {
+      setInput(englishToCron(value));
+    } catch {
+      // Not (yet) parseable: leave the cron input and its results untouched.
+    }
+  }
 
   // Parsing depends on the current time and the browser locale/timezone, so
   // it must only run client-side. This is false during SSR and the initial
@@ -154,7 +187,8 @@ export default function Explainer({
         </h1>
         <p className="mt-2 text-zinc-600 dark:text-zinc-400">
           Paste a cron expression and see what it means in plain English, plus
-          its next 5 run times.
+          its next 5 run times — or describe a schedule in English and get the
+          cron expression generated for you.
         </p>
 
         <label
@@ -181,6 +215,49 @@ export default function Explainer({
           Standard 5-field cron (minute hour day-of-month month day-of-week)
           plus @hourly, @daily, @weekly, @monthly, @yearly.
         </p>
+
+        <label
+          htmlFor="english-input"
+          className="mt-6 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+        >
+          Or describe a schedule in plain English
+        </label>
+        <input
+          id="english-input"
+          type="text"
+          value={english}
+          onChange={(e) => onEnglishChange(e.target.value)}
+          spellCheck={false}
+          autoComplete="off"
+          placeholder={EXAMPLE_PHRASES[0]}
+          className={`mt-2 w-full rounded-lg border bg-white px-4 py-3 text-lg text-zinc-900 shadow-sm outline-none transition-colors focus:ring-2 dark:bg-zinc-900 dark:text-zinc-100 ${
+            englishResult.error
+              ? "border-amber-400 focus:ring-amber-300 dark:border-amber-600"
+              : "border-zinc-300 focus:ring-blue-300 dark:border-zinc-700"
+          }`}
+        />
+        {englishResult.cron && (
+          <p
+            data-testid="generated-cron"
+            className="mt-2 text-sm text-zinc-600 dark:text-zinc-400"
+          >
+            Generated:{" "}
+            <span className="font-mono text-zinc-900 dark:text-zinc-100">
+              {englishResult.cron}
+            </span>
+          </p>
+        )}
+        {englishResult.error && (
+          <div
+            role="status"
+            data-testid="english-error"
+            className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
+          >
+            {englishResult.error} Try: &ldquo;{EXAMPLE_PHRASES[0]}&rdquo;,
+            &ldquo;{EXAMPLE_PHRASES[1]}&rdquo;, or &ldquo;{EXAMPLE_PHRASES[2]}
+            &rdquo;.
+          </div>
+        )}
 
         {error && (
           <div

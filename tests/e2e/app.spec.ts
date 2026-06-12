@@ -60,7 +60,79 @@ test.describe("Core flow 1: explain an expression", () => {
   });
 });
 
-test.describe("Core flow 2: invalid input", () => {
+test.describe("Core flow 2: generate from English", () => {
+  test("typing 'every weekday at 9am' generates 0 9 * * 1-5 and updates explanation", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const english = page.locator("#english-input");
+    const cron = page.locator("#cron-input");
+
+    await english.fill("every weekday at 9am");
+    await expect(cron).toHaveValue("0 9 * * 1-5");
+    await expect(page.getByTestId("generated-cron")).toContainText(
+      "0 9 * * 1-5"
+    );
+    const description = page.locator("section >> p").first();
+    await expect(description).toContainText(/09:00|9:00 AM/);
+    await expect(description).toContainText("Monday through Friday");
+    await expect(page.locator("ol > li")).toHaveCount(5);
+    // Permalink reflects the generated expression.
+    await expect(page.getByTestId("permalink")).toContainText(
+      "/e/0%209%20*%20*%201-5"
+    );
+  });
+
+  test("'every 10 minutes on weekends' generates */10 * * * 0,6", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.locator("#english-input").fill("every 10 minutes on weekends");
+    await expect(page.locator("#cron-input")).toHaveValue("*/10 * * * 0,6");
+    const description = page.locator("section >> p").first();
+    await expect(description).toContainText(/every 10 minutes/i);
+    await expect(description).toContainText(/Saturday|Sunday/);
+  });
+
+  test("unsupported phrase shows can't-understand message with examples; results keep previous expression", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const english = page.locator("#english-input");
+    const cron = page.locator("#cron-input");
+    const before = await cron.inputValue();
+
+    await english.fill("whenever mercury is in retrograde");
+    const msg = page.getByTestId("english-error");
+    await expect(msg).toBeVisible();
+    await expect(msg).toContainText(/couldn't understand/i);
+    await expect(msg).toContainText("every weekday at 9am");
+    // Cron input and results untouched — no silent guess.
+    await expect(cron).toHaveValue(before);
+    await expect(page.locator("ol > li")).toHaveCount(5);
+
+    // Message clears once the phrase becomes parseable.
+    await english.fill("every hour");
+    await expect(msg).toHaveCount(0);
+    await expect(cron).toHaveValue("0 * * * *");
+  });
+
+  test("one direction only: editing the cron input leaves the English input alone", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const english = page.locator("#english-input");
+    await english.fill("every monday at 9am");
+    await expect(page.locator("#cron-input")).toHaveValue("0 9 * * 1");
+
+    await page.locator("#cron-input").fill("*/5 * * * *");
+    await expect(english).toHaveValue("every monday at 9am");
+    const description = page.locator("section >> p").first();
+    await expect(description).toContainText(/every 5 minutes/i);
+  });
+});
+
+test.describe("Core flow 1: invalid input", () => {
   // Next.js injects an empty route announcer with role="alert", so scope to
   // the app's own error alert.
   const errorAlert = (page: import("@playwright/test").Page) =>

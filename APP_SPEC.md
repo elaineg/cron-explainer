@@ -1,20 +1,28 @@
 # Cron Explainer
 
-Purpose: For developers and ops folks who can't read cron at a glance — paste a cron
-expression and instantly see what it means in plain English plus the next 5 times it will
-run, in your local timezone.
+Purpose: For developers and ops folks who can't read or write cron at a glance — paste a
+cron expression and instantly see what it means in plain English plus the next 5 times it
+will run in your local timezone, or type a plain-English schedule and get the cron
+expression generated for you.
 
 Core flows:
-1. Explain an expression: the user types or pastes a cron string into a single input on the
-   home page. As they type (no submit button required), the page shows (a) a one-sentence
-   plain-English explanation and (b) the next 5 run times rendered in the browser's local
-   timezone, each as an absolute timestamp (e.g. "Thu, Jun 11 2026, 14:30") plus a relative
-   hint (e.g. "in 12 minutes"). The local timezone name (e.g. "America/Los_Angeles") is
-   labeled near the list.
-2. Handle invalid input: any unparseable string (wrong field count, out-of-range values,
-   garbage text) shows a clear inline error like "Not a valid cron expression: ..." with a
-   short reason when available. The page never crashes, never shows a blank state, and the
-   error clears as soon as the input becomes valid.
+1. Explain an expression (including invalid input): the user types or pastes a cron string
+   into a single input on the home page. As they type (no submit button required), the page
+   shows (a) a one-sentence plain-English explanation and (b) the next 5 run times rendered
+   in the browser's local timezone, each as an absolute timestamp (e.g. "Thu, Jun 11 2026,
+   14:30") plus a relative hint (e.g. "in 12 minutes"). The local timezone name (e.g.
+   "America/Los_Angeles") is labeled near the list. Any unparseable string (wrong field
+   count, out-of-range values, garbage text) shows a clear inline error like "Not a valid
+   cron expression: ..." with a short reason when available. The page never crashes, never
+   shows a blank state, and the error clears as soon as the input becomes valid.
+2. Generate from English: a second input where the user types a plain-English schedule
+   (e.g. "every weekday at 9am", "every 10 minutes on weekends", "at 6:30pm on the 1st").
+   As they type, the page shows the generated cron expression and feeds it into the SAME
+   explanation + next-5-run-times view as flow 1 (the cron input updates to the generated
+   expression, so the permalink and explanation reflect it). Phrases the generator doesn't
+   understand show a clear inline message (e.g. "Couldn't understand that schedule") with
+   2–3 example phrases that do work — no crash, no blank state, and the message clears
+   when the phrase becomes parseable. This is the differentiator crontab.guru lacks.
 3. API access: `GET /api/explain?expr=<url-encoded cron>` returns JSON
    `{ "expression": string, "description": string, "next": [5 ISO 8601 UTC timestamps] }`
    with status 200, or `{ "error": string }` with status 400 for invalid input. The home
@@ -38,6 +46,15 @@ Builder decisions (binding):
   computation server-side. API timestamps are UTC ISO 8601; the UI converts to local time.
 - Input is prefilled with a sensible example (e.g. `*/15 9-17 * * MON-FRI`) so the first
   paint already demonstrates the product.
+- English-to-cron is a deterministic, rule-based parser running client-side (no LLM, no
+  network call, no paid service). It must handle at least: "every minute", "every N
+  minutes/hours" (with optional day qualifiers like "on weekends"/"on weekdays"), "every
+  day/weekday at H(:MM)?(am|pm)", named weekdays ("every monday at 9am", "on mon and fri
+  at 17:00"), "every hour", and "at H(:MM)?(am|pm) on the Nth" (day of month). Anything
+  outside the grammar gives the friendly can't-understand message — never a wrong silent
+  guess. Case-insensitive, tolerant of extra whitespace.
+- The English input does NOT round-trip from the cron input (one direction only: English →
+  cron). Editing the cron input directly leaves the English input as-is.
 
 Success checks:
 - Loading the home page shows a prefilled example expression with a non-empty English
@@ -51,6 +68,15 @@ Success checks:
   `description` containing "every 10 minutes" (case-insensitive) and a `next` array of
   exactly 5 ISO 8601 timestamps spaced 10 minutes apart.
 - `curl "<prod>/api/explain?expr=banana"` returns HTTP 400 with a JSON `error` field.
+- Typing `every weekday at 9am` into the English input produces cron `0 9 * * 1-5` (or an
+  equivalent like `0 9 * * MON-FRI`), and the explanation + next-run view update to show
+  weekday 9:00 runs without any further interaction.
+- Typing `every 10 minutes on weekends` into the English input produces `*/10 * * * 0,6`
+  (or equivalent `SAT,SUN` form) and the explanation mentions every 10 minutes on
+  Saturday/Sunday.
+- Typing an unsupported phrase (e.g. `whenever mercury is in retrograde`) into the English
+  input shows the can't-understand message with example phrases; the page does not crash
+  and previously shown results are not replaced by garbage.
 - After typing `0 9 * * MON-FRI`, the page shows a permalink ending in
   `/e/0%209%20*%20*%20MON-FRI` (or an equivalent encoding of the same expression) and a
   copy control that puts that absolute URL on the clipboard.
@@ -61,7 +87,11 @@ Success checks:
   invalid-expression error; the response status is not a 5xx.
 
 Out of scope:
-- Building cron expressions from English (reverse direction) or any visual cron builder.
+- A visual/point-and-click cron builder.
+- An API endpoint for English-to-cron (`/api/generate` or similar) — UI-only for now.
+- LLM-backed or fuzzy natural-language parsing; only the documented deterministic grammar.
+- Round-tripping cron back to the English input (cron → English text is the explanation,
+  not the generator input).
 - 6/7-field cron (seconds, years), Quartz syntax, `@reboot`, and non-standard macros.
 - Timezone picker / showing runs in arbitrary zones (local + UTC-in-API only).
 - Accounts, saved expressions, history, rate limiting, or any persistence. (Sharing is
