@@ -1,0 +1,3 @@
+PASSED 2026-06-12 — round 3 (+ round-4 single-tester re-test). 9/10 testers at advocacy ≥9 with clarity=Yes AND value=Yes.
+Scores: T2=10, T3=9, T4=10, T5=9, T6=9, T7=10, T8=9, T9=9, T10=10; T1=8 (Yes/Yes) — environment-artifact miss (clipboard blocked in tester's headless context; copy-link confirmation verified working on live preview + e2e).
+Production: https://cron-explainer-xi.vercel.app (commit cf819d3 — invalid-tz→400 confirms new build live).
