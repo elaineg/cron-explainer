@@ -47,11 +47,15 @@ function reasonFrom(e: unknown): string {
  * Explain a standard 5-field cron expression (or supported @macro) and compute
  * its next `count` run times. Throws CronError with a human-readable message
  * for anything invalid.
+ *
+ * @param tz  IANA timezone string (e.g. "America/New_York"). Defaults to "UTC".
+ *            Invalid/unknown values fall back to UTC silently.
  */
 export function explainCron(
   input: string,
   count = 5,
-  from: Date = new Date()
+  from: Date = new Date(),
+  tz = "UTC"
 ): CronExplanation {
   const expression = input.trim();
   if (!expression) {
@@ -91,12 +95,22 @@ export function explainCron(
     }
   }
 
+  // Validate the tz string; fall back to UTC if it's unrecognised.
+  let resolvedTz = "UTC";
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: tz });
+    resolvedTz = tz;
+  } catch {
+    // invalid tz — silently fall back to UTC
+  }
+
   let description: string;
   let next: Date[];
   try {
     description = cronstrue.toString(normalized);
     const interval = CronExpressionParser.parse(normalized, {
       currentDate: from,
+      tz: resolvedTz,
     });
     next = [];
     for (let i = 0; i < count; i++) {
@@ -110,4 +124,38 @@ export function explainCron(
   description = description.replace(/^At 12:00 AM/, "At 12:00 AM (midnight)");
 
   return { expression, description, next };
+}
+
+/**
+ * Return the most recent past run time for a cron expression, or null if it
+ * cannot be determined. Best-effort; never throws.
+ */
+export function prevCronRun(
+  input: string,
+  from: Date = new Date(),
+  tz = "UTC"
+): Date | null {
+  try {
+    const expression = input.trim();
+    let normalized = expression;
+    if (expression.startsWith("@")) {
+      const macro = MACROS[expression.toLowerCase()];
+      if (!macro) return null;
+      normalized = macro;
+    } else if (expression.split(/\s+/).length !== 5) {
+      return null;
+    }
+    let resolvedTz = "UTC";
+    try {
+      Intl.DateTimeFormat(undefined, { timeZone: tz });
+      resolvedTz = tz;
+    } catch { /* invalid tz */ }
+    const interval = CronExpressionParser.parse(normalized, {
+      currentDate: from,
+      tz: resolvedTz,
+    });
+    return interval.prev().toDate();
+  } catch {
+    return null;
+  }
 }

@@ -13,10 +13,15 @@
  *   every weekday at <time>
  *   every weekend at <time>
  *   every <weekday names> at <time>        e.g. "every monday at 9am"
+ *   <weekday names> at <time>              e.g. "9am every monday" (weekday-first)
  *   on <days> at <time>                    e.g. "on mon and fri at 17:00"
  *   at <time> on <days>
  *   on the Nth at <time> / at <time> on the Nth   N in 1–31 (day of month)
+ *   first of the month at <time>
+ *   last of the month at <time>
+ *   at <time> [on the first/last of the month]
  *   at <time>                              (daily)
+ *   quarterly at <time>                    (0 0 1 1,4,7,10 *)
  *
  * <days>  = "weekdays" | "weekends" | weekday names joined by "and"/","
  * <time>  = H | H:MM | Ham/pm | H:MMam/pm | "noon" | "midnight"
@@ -26,14 +31,17 @@
 /** Error whose message is safe to show to the user. */
 export class EnglishError extends Error {}
 
-/** Phrases shown next to the "couldn't understand" message. */
+/** Phrases shown as clickable example chips. */
 export const EXAMPLE_PHRASES = [
   "every weekday at 9am",
-  "every 10 minutes on weekends",
-  "at 6:30pm on the 1st",
+  "noon every day",
+  "first of the month at 9am",
+  "every 30 minutes",
+  "9am every monday",
 ] as const;
 
-const CANT_UNDERSTAND = "Couldn't understand that schedule.";
+const CANT_UNDERSTAND =
+  "Couldn't read that schedule. Try one of the examples below.";
 
 function fail(message: string = CANT_UNDERSTAND): never {
   throw new EnglishError(message);
@@ -159,6 +167,34 @@ export function englishToCron(input: string): string {
     return `0 ${n === 1 ? "*" : `*/${n}`} * * ${dow}`;
   }
 
+  // quarterly [at <time>]
+  if ((m = /^quarterly(?: at (.+))?$/.exec(s))) {
+    const t = m[1] ? parseTime(m[1]) : { h: 0, m: 0 };
+    return `${t.m} ${t.h} 1 1,4,7,10 *`;
+  }
+
+  // first of the month [at <time>]
+  if (
+    (m =
+      /^(?:first of (?:the )?month|on the first of (?:the )?month)(?: at (.+))?$/.exec(
+        s
+      ))
+  ) {
+    const t = m[1] ? parseTime(m[1]) : fail();
+    return `${t.m} ${t.h} 1 * *`;
+  }
+
+  // last of the month [at <time>]
+  if (
+    (m =
+      /^(?:last of (?:the )?month|on the last of (?:the )?month)(?: at (.+))?$/.exec(
+        s
+      ))
+  ) {
+    const t = m[1] ? parseTime(m[1]) : fail();
+    return `${t.m} ${t.h} 28-31 * *`;
+  }
+
   // every day at <time>
   if ((m = /^every day at (.+)$/.exec(s))) {
     const t = parseTime(m[1]);
@@ -175,6 +211,55 @@ export function englishToCron(input: string): string {
   if ((m = /^every weekend(?: day)? at (.+)$/.exec(s))) {
     const t = parseTime(m[1]);
     return `${t.m} ${t.h} * * 0,6`;
+  }
+
+  // <time> every <days> — weekday-first ordering e.g. "9am every monday"
+  // Must come before "every <weekday> at <time>" to handle "9am every monday"
+  if ((m = /^(\S+)\s+every\s+(.+)$/.exec(s))) {
+    // Try to parse m[1] as a time and m[2] as a day/days spec
+    try {
+      const t = parseTime(m[1]);
+      // m[2] could be "monday", "weekday", "weekdays", "weekend", etc.
+      const dayStr = m[2];
+      let dow: string;
+      if (dayStr === "day") {
+        dow = "*";
+      } else if (dayStr === "weekday" || dayStr === "weekdays") {
+        dow = "1-5";
+      } else if (
+        dayStr === "weekend" ||
+        dayStr === "weekends" ||
+        dayStr === "the weekend"
+      ) {
+        dow = "0,6";
+      } else {
+        dow = parseDays(dayStr);
+      }
+      return `${t.m} ${t.h} * * ${dow}`;
+    } catch {
+      // not a time-first phrase — fall through
+    }
+  }
+
+  // noon/midnight every <days> — e.g. "noon every day"
+  if ((m = /^(noon|midnight) every (.+)$/.exec(s))) {
+    const t = parseTime(m[1]);
+    const dayStr = m[2];
+    let dow: string;
+    if (dayStr === "day") {
+      dow = "*";
+    } else if (dayStr === "weekday" || dayStr === "weekdays") {
+      dow = "1-5";
+    } else if (
+      dayStr === "weekend" ||
+      dayStr === "weekends" ||
+      dayStr === "the weekend"
+    ) {
+      dow = "0,6";
+    } else {
+      dow = parseDays(dayStr);
+    }
+    return `${t.m} ${t.h} * * ${dow}`;
   }
 
   // every <weekday names> at <time>   e.g. "every monday at 9am"
@@ -196,6 +281,16 @@ export function englishToCron(input: string): string {
     const t = parseTime(m[1]);
     const dom = parseDayOfMonth(m[2]);
     return `${t.m} ${t.h} ${dom} * *`;
+  }
+
+  // at <time> on the first/last of the month
+  if ((m = /^at (.+) on the first of (?:the )?month$/.exec(s))) {
+    const t = parseTime(m[1]);
+    return `${t.m} ${t.h} 1 * *`;
+  }
+  if ((m = /^at (.+) on the last of (?:the )?month$/.exec(s))) {
+    const t = parseTime(m[1]);
+    return `${t.m} ${t.h} 28-31 * *`;
   }
 
   // on <days> at <time>   e.g. "on mon and fri at 17:00"

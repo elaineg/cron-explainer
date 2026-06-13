@@ -23,16 +23,19 @@ Core flows:
    understand show a clear inline message (e.g. "Couldn't understand that schedule") with
    2–3 example phrases that do work — no crash, no blank state, and the message clears
    when the phrase becomes parseable. This is the differentiator crontab.guru lacks.
-3. API access: `GET /api/explain?expr=<url-encoded cron>` returns JSON
+3. API access: `GET /api/explain?expr=<url-encoded cron>[&tz=<IANA timezone>]` returns JSON
    `{ "expression": string, "description": string, "next": [5 ISO 8601 UTC timestamps] }`
-   with status 200, or `{ "error": string }` with status 400 for invalid input. The home
-   page links to or documents this endpoint in one line.
-4. Shareable permalinks: whenever the current input is a valid expression, the page shows a
-   copyable permalink of the form `<origin>/e/<url-encoded-expression>` with a copy button.
-   Opening that URL renders the app pre-filled with the expression, its English explanation,
-   and next 5 run times already shown — no extra interaction needed. Invalid or garbage
-   `/e/...` paths render the app with the raw string in the input and the normal inline
-   error (no crash, no 500).
+   where `next` contains genuine UTC instants computed in the requested timezone (default
+   UTC). Invalid/unknown `tz` falls back to UTC silently. Status 200, or `{ "error": string }`
+   with status 400 for invalid input. The home page documents this endpoint.
+4. Shareable permalinks: whenever the current input is a valid expression, the page shows an
+   always-visible copyable permalink of the form `<origin>/e/<url-encoded-expression>` with
+   a Copy-link button that shows a green "Copied!" confirmation for ~1.5s. When UTC mode is
+   active the permalink includes `?tz=UTC`. The page also accepts `?expr=` and `?cron=`
+   query-string aliases that prefill the input identically to the `/e/<expr>` form.
+   Opening any of these renders the app pre-filled — no extra interaction needed. Invalid
+   or garbage `/e/...` paths render the app with the raw string in the input and the normal
+   inline error (no crash, no 500).
 
 Builder decisions (binding):
 - Support standard 5-field cron (minute hour day-of-month month day-of-week), including
@@ -47,12 +50,14 @@ Builder decisions (binding):
 - Input is prefilled with a sensible example (e.g. `*/15 9-17 * * MON-FRI`) so the first
   paint already demonstrates the product.
 - English-to-cron is a deterministic, rule-based parser running client-side (no LLM, no
-  network call, no paid service). It must handle at least: "every minute", "every N
-  minutes/hours" (with optional day qualifiers like "on weekends"/"on weekdays"), "every
-  day/weekday at H(:MM)?(am|pm)", named weekdays ("every monday at 9am", "on mon and fri
-  at 17:00"), "every hour", and "at H(:MM)?(am|pm) on the Nth" (day of month). Anything
-  outside the grammar gives the friendly can't-understand message — never a wrong silent
-  guess. Case-insensitive, tolerant of extra whitespace.
+  network call, no paid service). It handles: "every minute", "every N minutes/hours"
+  (with optional day qualifiers), "every day/weekday at H(:MM)?(am|pm)", named weekdays
+  ("every monday at 9am", "9am every monday", "on mon and fri at 17:00"), "every hour",
+  "at H(:MM)?(am|pm) on the Nth" (day of month), "noon"/"midnight" time words,
+  "first/last of the month at <time>", "every N minutes/hours", "quarterly [at <time>]",
+  weekday-first ordering ("9am every monday"), and am/pm variants. Anything outside the
+  grammar gives the friendly can't-understand message — never a wrong silent guess.
+  Case-insensitive, tolerant of extra whitespace.
 - The English input does NOT round-trip from the cron input (one direction only: English →
   cron). Editing the cron input directly leaves the English input as-is.
 
@@ -93,7 +98,7 @@ Out of scope:
 - Round-tripping cron back to the English input (cron → English text is the explanation,
   not the generator input).
 - 6/7-field cron (seconds, years), Quartz syntax, `@reboot`, and non-standard macros.
-- Timezone picker / showing runs in arbitrary zones (local + UTC-in-API only).
+- Arbitrary IANA timezone picker beyond the Local ↔ UTC toggle (Local + UTC covered).
 - Accounts, saved expressions, history, rate limiting, or any persistence. (Sharing is
   permalinks only — no short links, no stored state.)
 - Explaining crontab files with multiple lines or environment variables.

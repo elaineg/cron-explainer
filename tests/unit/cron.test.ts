@@ -47,16 +47,19 @@ describe("explainCron — valid expressions", () => {
   });
 
   it("explains 0 9 * * MON-FRI with weekday 9:00 runs", () => {
-    const { description, next } = explainCron("0 9 * * MON-FRI", 5, FROM);
+    // explainCron defaults to UTC; check UTC hour via ISO string
+    const { description, next } = explainCron("0 9 * * MON-FRI", 5, FROM, "UTC");
     expect(description).toMatch(/09:00|9:00 AM/);
     expect(description).toContain("Monday through Friday");
     expect(next).toHaveLength(5);
     for (const d of next) {
-      const dow = d.getDay(); // local time; runner local tz applies
-      expect(dow).toBeGreaterThanOrEqual(1);
-      expect(dow).toBeLessThanOrEqual(5);
-      expect(d.getHours()).toBe(9);
-      expect(d.getMinutes()).toBe(0);
+      // ISO string shows UTC time; verify it fires at 09:00 UTC on a weekday
+      const iso = d.toISOString();
+      expect(iso).toMatch(/T09:00:00/);
+      // Day-of-week in UTC
+      const dowUtc = new Date(iso).getUTCDay();
+      expect(dowUtc).toBeGreaterThanOrEqual(1);
+      expect(dowUtc).toBeLessThanOrEqual(5);
     }
   });
 

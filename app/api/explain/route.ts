@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 
 export function GET(request: NextRequest) {
   const expr = request.nextUrl.searchParams.get("expr");
+  const tz = request.nextUrl.searchParams.get("tz") ?? "UTC";
 
   if (expr === null || expr.trim() === "") {
     return NextResponse.json(
@@ -14,7 +15,12 @@ export function GET(request: NextRequest) {
   }
 
   try {
-    const { expression, description, next } = explainCron(expr);
+    const { expression, description, next } = explainCron(
+      expr,
+      5,
+      new Date(),
+      tz
+    );
     return NextResponse.json({
       expression,
       description,
