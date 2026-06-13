@@ -3,9 +3,18 @@ import { explainCron, CronError } from "@/lib/cron";
 
 export const dynamic = "force-dynamic";
 
+function isValidIANATimezone(tz: string): boolean {
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function GET(request: NextRequest) {
   const expr = request.nextUrl.searchParams.get("expr");
-  const tz = request.nextUrl.searchParams.get("tz") ?? "UTC";
+  const tzParam = request.nextUrl.searchParams.get("tz");
 
   if (expr === null || expr.trim() === "") {
     return NextResponse.json(
@@ -13,6 +22,16 @@ export function GET(request: NextRequest) {
       { status: 400 }
     );
   }
+
+  // Fix 3: if tz is present but not a valid IANA timezone, return 400.
+  // Only default to UTC when tz is absent.
+  if (tzParam !== null && !isValidIANATimezone(tzParam)) {
+    return NextResponse.json(
+      { error: `Unknown timezone: ${tzParam}` },
+      { status: 400 }
+    );
+  }
+  const tz = tzParam ?? "UTC";
 
   try {
     const { expression, description, next } = explainCron(

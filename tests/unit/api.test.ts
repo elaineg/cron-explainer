@@ -53,4 +53,22 @@ describe("GET /api/explain (route handler)", () => {
     expect(body.description.toLowerCase()).toContain("midnight");
     expect(body.next).toHaveLength(5);
   });
+
+  it("returns 400 for an invalid IANA timezone (fix 3)", async () => {
+    const res = GET(req("?expr=" + encodeURIComponent("*/10 * * * *") + "&tz=Not%2FA%2FTimezone"));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/Unknown timezone/);
+  });
+
+  it("defaults to UTC when tz is absent (fix 3 — no regression)", async () => {
+    const res = GET(req("?expr=" + encodeURIComponent("0 12 * * *")));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.next).toHaveLength(5);
+    // All timestamps should be UTC noon (hour=12)
+    for (const ts of body.next) {
+      expect(new Date(ts).getUTCHours()).toBe(12);
+    }
+  });
 });

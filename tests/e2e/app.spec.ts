@@ -18,10 +18,14 @@ test.describe("Core flow 1: explain an expression", () => {
     // Exactly 5 run times rendered.
     await expect(page.locator("ol > li")).toHaveCount(5);
 
-    // Timezone label present (IANA name like Area/City or UTC).
-    await expect(page.getByText(/your timezone:/i)).toBeVisible();
-    const tzText = await page.getByText(/your timezone:/i).innerText();
-    expect(tzText).toMatch(/your timezone:\s*\S+/i);
+    // Timezone label present near the next-runs section (e.g. "Next 5 runs — America/Los_Angeles").
+    // The app renders this as "Next 5 runs — {tzLabel}" in the section header.
+    const tzHeader = page.locator("h2").filter({ hasText: /next 5 runs/i });
+    await expect(tzHeader).toBeVisible();
+    const tzHeaderText = await tzHeader.innerText();
+    expect(tzHeaderText).toMatch(/next 5 runs/i);
+    // Must show a non-empty timezone portion after the dash
+    expect(tzHeaderText).toMatch(/—\s*\S+/);
 
     // Each run row has an absolute timestamp and a relative hint.
     const rows = page.locator("ol > li");
@@ -105,8 +109,10 @@ test.describe("Core flow 2: generate from English", () => {
     await english.fill("whenever mercury is in retrograde");
     const msg = page.getByTestId("english-error");
     await expect(msg).toBeVisible();
-    await expect(msg).toContainText(/couldn't understand/i);
-    await expect(msg).toContainText("every weekday at 9am");
+    // App shows "Couldn't read that schedule. Try one of the examples below."
+    await expect(msg).toContainText(/couldn't/i);
+    // Example phrases are shown as chips near the input (not inside the error div itself)
+    await expect(page.getByRole("button", { name: "every weekday at 9am" })).toBeVisible();
     // Cron input and results untouched — no silent guess.
     await expect(cron).toHaveValue(before);
     await expect(page.locator("ol > li")).toHaveCount(5);

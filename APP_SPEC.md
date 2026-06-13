@@ -26,8 +26,10 @@ Core flows:
 3. API access: `GET /api/explain?expr=<url-encoded cron>[&tz=<IANA timezone>]` returns JSON
    `{ "expression": string, "description": string, "next": [5 ISO 8601 UTC timestamps] }`
    where `next` contains genuine UTC instants computed in the requested timezone (default
-   UTC). Invalid/unknown `tz` falls back to UTC silently. Status 200, or `{ "error": string }`
-   with status 400 for invalid input. The home page documents this endpoint.
+   UTC when `tz` is absent). If `tz` is present but not a valid IANA timezone, the API
+   returns 400 `{ "error": "Unknown timezone: <value>" }` — it does NOT silently coerce to
+   UTC. Status 200, or `{ "error": string }` with status 400 for invalid input (bad expr
+   or invalid tz). The home page documents this endpoint.
 4. Shareable permalinks: whenever the current input is a valid expression, the page shows an
    always-visible copyable permalink of the form `<origin>/e/<url-encoded-expression>` with
    a Copy-link button that shows a green "Copied!" confirmation for ~1.5s. When UTC mode is

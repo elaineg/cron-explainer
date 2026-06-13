@@ -1,0 +1,78 @@
+{
+  "app": "cron-explainer",
+  "url": "https://cron-explainer-xi.vercel.app",
+  "roster_version": "2026-06-12 ICP reorientation (Elaine directive)",
+  "note": "Profiles generated fresh from lib/personas/roster.json for cron-explainer. Each persona keeps its canonical role/tech/stack/temperament; 'motivation' is why THIS person lands on a cron explainer in their real workflow.",
+  "personas": [
+    {
+      "id": 1, "name": "Priya", "role": "Senior backend software engineer",
+      "tech": "high", "device": "desktop, large monitor, keyboard-first",
+      "stack": "terminal + neovim, GitHub, Kubernetes dashboards, Datadog, Linear, Slack",
+      "temperament": "skeptical of new tools; hates signups; will inspect network tab if suspicious; abandons anything slower than a CLI",
+      "motivation": "Reviewing a teammate's PR that adds a CronJob to a K8s manifest with `*/15 9-17 * * 1-5`; wants to confirm at a glance it really means business-hours-weekdays before approving, and to sanity-check the next run times in her own timezone."
+    },
+    {
+      "id": 2, "name": "Marcus", "role": "Frontend engineer, 2 years in",
+      "tech": "high", "device": "desktop, Chrome with devtools open",
+      "stack": "VS Code, GitHub, Vercel, Figma dev mode, Storybook, Discord/Slack",
+      "temperament": "enthusiastic early adopter; shares tools in team Slack when impressed; notices janky CSS instantly",
+      "motivation": "Setting up a GitHub Actions scheduled workflow and a Vercel cron; never remembers cron syntax, usually googles crontab.guru — wants to type 'every weekday at 9am' and get the expression instead of hand-building it."
+    },
+    {
+      "id": 3, "name": "Wen", "role": "Marketing data analyst",
+      "tech": "high-medium", "device": "desktop, two monitors",
+      "stack": "BigQuery/SQL, Google Sheets, Looker Studio, dbt, GA4, Slack",
+      "temperament": "lives in data hygiene; distrusts tools that transform data invisibly; wants CSV in/out everywhere",
+      "motivation": "Schedules dbt Cloud jobs and Airflow DAGs with cron; wants to verify a `0 6 * * *` job actually fires at 6am her timezone (not UTC) before a stakeholder asks why the dashboard was stale."
+    },
+    {
+      "id": 4, "name": "Tomás", "role": "Operations analyst at a mid-size company",
+      "tech": "medium", "device": "corporate Windows laptop, Edge",
+      "stack": "Excel (power user), Tableau, Jira, Teams, SharePoint",
+      "temperament": "pragmatic; IT blocks installs so browser tools appeal; wary of pasting company data into random sites",
+      "motivation": "Inherited a server with crontab entries he didn't write; needs to read what `30 2 1 * *` does without learning cron, and a browser tool he can't install-block is exactly what he can use at work."
+    },
+    {
+      "id": 5, "name": "Dana", "role": "Demand-gen marketer",
+      "tech": "medium", "device": "MacBook in cafes; phone between meetings",
+      "stack": "HubSpot, GA4, Notion, Canva, LinkedIn Campaign Manager, Google Ads",
+      "temperament": "ruthless about time; if value isn't obvious in one scroll she's gone; screenshots tools she likes for the team channel",
+      "motivation": "Her marketing-automation platform asks for a 'cron schedule' for a recurring report export; she has no idea what to type and just wants to describe 'every Monday at 8am' and copy the answer."
+    },
+    {
+      "id": 6, "name": "Jules", "role": "Content & community marketer",
+      "tech": "medium", "device": "50/50 desktop and mobile",
+      "stack": "Notion, Buffer, Mailchimp, Figma (consuming), X/LinkedIn/Mastodon, Discord",
+      "temperament": "posts constantly, juggles platform quirks daily; allergic to anything requiring a login for a small job",
+      "motivation": "Configuring a self-hosted scheduler (Uptime Kuma / a webhook bot) that wants cron; lands here to translate 'every 6 hours on weekends' without making an account."
+    },
+    {
+      "id": 7, "name": "Aisha", "role": "Product designer",
+      "tech": "medium-high", "device": "desktop, big display, trackpad",
+      "stack": "Figma, FigJam, Notion, Loom, Maze, Slack",
+      "temperament": "judges craft hard — spacing, copy tone, empty states; a clumsy UI loses her regardless of utility; advocates loudly for tools that feel considered",
+      "motivation": "A developer handed her a cron string in a spec for a scheduled design-system sync; she wants to understand what it means in plain English and judges whether this little tool is crafted enough to trust and recommend."
+    },
+    {
+      "id": 8, "name": "Rob", "role": "Brand/visual designer, freelance",
+      "tech": "medium", "device": "desktop, color-calibrated monitor",
+      "stack": "Figma, Illustrator, Photoshop, Google Drive, client Slacks/emails",
+      "temperament": "does repetitive asset-prep grunt work weekly; price-sensitive; compares everything to 'I could do this in Photoshop in 4 minutes'",
+      "motivation": "Set up a cron-based backup script for his client deliverables once and forgot the syntax; comes back occasionally to decode `0 */4 * * *` and confirm when the next backup runs."
+    },
+    {
+      "id": 9, "name": "Elena", "role": "Engineering manager (8 reports)",
+      "tech": "medium-high but no time", "device": "laptop + phone, half the day in meetings",
+      "stack": "Google Calendar (wall-to-wall), Slack, Linear, Google Docs, Zoom, dashboards she skims",
+      "temperament": "30-second patience budget; uses tools between meetings on her phone; anything requiring setup is dead to her; recommends tools that save her reports time",
+      "motivation": "In an incident review someone blames a misconfigured cron; she wants to paste the expression on her phone and instantly see whether it ran when they claimed, without pinging an engineer."
+    },
+    {
+      "id": 10, "name": "Sam", "role": "Product manager",
+      "tech": "medium", "device": "mobile-heavy between meetings, laptop otherwise",
+      "stack": "Notion, Sheets, Slack, Zoom, Asana, Amplitude (skims), endless browser tabs",
+      "temperament": "synthesizes and shares constantly — exports, links, screenshots; values anything that makes him look organized; won't debug anything",
+      "motivation": "Writing a ticket that specifies a recurring job; wants to paste a cron expression into the ticket AND include a plain-English gloss + a shareable link so engineers and stakeholders both understand the schedule."
+    }
+  ]
+}

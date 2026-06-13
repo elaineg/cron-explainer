@@ -112,7 +112,8 @@ export default function Explainer({
     try {
       setInput(englishToCron(value));
     } catch {
-      // Not (yet) parseable: leave the cron input and its results untouched.
+      // Not parseable: leave the cron input as-is, but the result region
+      // will be suppressed below via englishBlocksResult.
     }
   }
 
@@ -176,14 +177,24 @@ export default function Explainer({
         };
       }
 
+      // Fix 4b: suppress duplicate relative hints — each run shows its own
+      // offset string; if it would repeat a prior run's string, omit it.
+      const seenRelative = new Set<string>();
+      const runs = next.map((d) => {
+        const rel = formatRelative(d, now);
+        const relative = seenRelative.has(rel) ? "" : rel;
+        seenRelative.add(rel);
+        return {
+          iso: d.toISOString(),
+          absolute: formatAbsolute(d, timezone),
+          relative,
+        };
+      });
+
       return {
         result: {
           description,
-          runs: next.map((d) => ({
-            iso: d.toISOString(),
-            absolute: formatAbsolute(d, timezone),
-            relative: formatRelative(d, now),
-          })),
+          runs,
           prevRun,
         },
         error: null,
@@ -210,7 +221,12 @@ export default function Explainer({
   const tzParam = tzMode === "UTC" ? "?tz=UTC" : "";
   const permalinkUrl = `${origin}${permalinkPath}${tzParam}`;
 
-  const isValid = !error && result !== null;
+  // Fix 1: when the English field is non-empty and has a parse error, block
+  // the result region entirely — a valid cron result must never coexist with
+  // an English-parse error on screen.
+  const englishBlocksResult = !!(english.trim() && englishResult.error);
+
+  const isValid = !error && result !== null && !englishBlocksResult;
 
   return (
     <div className="flex flex-1 flex-col items-center bg-zinc-50 px-4 py-12 font-sans dark:bg-zinc-950 sm:py-20">
@@ -246,15 +262,16 @@ export default function Explainer({
                 : "border-zinc-300 focus:ring-blue-300 dark:border-zinc-700"
             }`}
           />
-          {/* B: Copy cron button — only when valid */}
+          {/* B: Copy cron button — only when valid; shows unmistakable ✓ Copied! for ~1.5s */}
           {isValid && (
             <button
               type="button"
               onClick={() => copyCron(trimmedInput)}
-              title="Copy cron expression"
-              className={`absolute right-2 top-1/2 -translate-y-1/2 rounded-md border px-2 py-1 text-xs font-medium shadow-sm transition-colors ${
+              title={copiedCron ? "Copied!" : "Copy cron expression"}
+              aria-label={copiedCron ? "Copied!" : "Copy cron expression"}
+              className={`absolute right-2 top-1/2 -translate-y-1/2 rounded-md border px-2 py-1.5 text-xs font-semibold shadow-sm transition-all ${
                 copiedCron
-                  ? "border-green-400 bg-green-50 text-green-700 dark:border-green-600 dark:bg-green-950 dark:text-green-300"
+                  ? "border-green-500 bg-green-100 text-green-800 ring-1 ring-green-400 dark:border-green-500 dark:bg-green-900 dark:text-green-200 dark:ring-green-500"
                   : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
               }`}
             >
@@ -328,8 +345,8 @@ export default function Explainer({
           </div>
         )}
 
-        {/* E: Cron parse error (clears result below) */}
-        {error && (
+        {/* E: Cron parse error (clears result below). Hidden when English error already blocks. */}
+        {error && !englishBlocksResult && (
           <div
             role="alert"
             className="mt-6 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200"
@@ -439,24 +456,29 @@ export default function Explainer({
           </>
         )}
 
-        {!error && !result && (
+        {!error && !result && !englishBlocksResult && (
           <p className="mt-6 text-sm text-zinc-500 dark:text-zinc-400">
             Parsing…
           </p>
         )}
 
-        {/* API doc line */}
-        <p className="mt-10 border-t border-zinc-200 pt-4 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-          API:{" "}
-          <a
-            href={`/api/explain?expr=${encodeURIComponent(EXAMPLE)}`}
-            className="font-mono text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
-          >
-            GET /api/explain?expr=&lt;url-encoded cron&gt;[&amp;tz=&lt;IANA&gt;]
-          </a>{" "}
-          returns JSON with the description and next 5 run times (UTC ISO
-          8601).
-        </p>
+        {/* Fix 4a: API/Developers section — properly styled, not raw text */}
+        <footer className="mt-10 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
+            Developers
+          </p>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            <a
+              href={`/api/explain?expr=${encodeURIComponent(EXAMPLE)}`}
+              className="font-mono text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
+            >
+              GET /api/explain?expr=&lt;url-encoded cron&gt;[&amp;tz=&lt;IANA&gt;]
+            </a>{" "}
+            — returns JSON with the description and next 5 run times (UTC ISO
+            8601). Invalid or absent <code className="font-mono text-xs">tz</code>{" "}
+            returns 400.
+          </p>
+        </footer>
       </main>
     </div>
   );
