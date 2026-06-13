@@ -55,16 +55,17 @@ test.describe("Round-2: API timezone correctness", () => {
     expect(body.next[0]).not.toBe(utcBody.next[0]);
   });
 
-  test("GET /api/explain with invalid tz falls back to UTC silently (returns 200)", async ({
+  // Updated (round-3): spec requires invalid tz → 400, not silent fallback.
+  test("GET /api/explain with invalid tz returns 400 with error (spec: never silently coerce)", async ({
     request,
   }) => {
     const res = await request.get(
       "/api/explain?expr=0%206%20*%20*%20*&tz=Not/ATimezone"
     );
-    expect(res.status()).toBe(200);
+    expect(res.status()).toBe(400);
     const body = await res.json();
-    expect(Array.isArray(body.next)).toBe(true);
-    expect(body.next).toHaveLength(5);
+    expect(typeof body.error).toBe("string");
+    expect(body.error).toContain("Not/ATimezone");
   });
 });
 
@@ -151,7 +152,8 @@ test.describe("Round-2: NL generator phrase coverage", () => {
     });
   }
 
-  test("unparseable phrase shows friendly error and does NOT clear prior results", async ({
+  // Updated (round-3): unparseable English error BLOCKS results — no stale cron result coexists.
+  test("unparseable phrase shows friendly error and BLOCKS the cron result region (round-3 fix)", async ({
     page,
   }) => {
     await page.goto("/");
@@ -167,12 +169,13 @@ test.describe("Round-2: NL generator phrase coverage", () => {
     await expect(errMsg).toBeVisible();
     await expect(errMsg).toContainText(/couldn't/i);
 
-    // Cron results must still be visible (prior expression unchanged)
-    await expect(page.locator("ol > li")).toHaveCount(5);
+    // Round-3: cron result region is suppressed when English error is active
+    await expect(page.locator("ol > li")).toHaveCount(0);
 
-    // Clearing → typing a valid phrase removes the error
+    // Clearing → typing a valid phrase removes the error and restores results
     await page.locator("#english-input").fill("every hour");
     await expect(page.getByTestId("english-error")).toHaveCount(0);
     await expect(page.locator("#cron-input")).toHaveValue("0 * * * *");
+    await expect(page.locator("ol > li")).toHaveCount(5);
   });
 });

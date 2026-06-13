@@ -27,13 +27,17 @@ test.describe("Core flow 1: explain an expression", () => {
     // Must show a non-empty timezone portion after the dash
     expect(tzHeaderText).toMatch(/—\s*\S+/);
 
-    // Each run row has an absolute timestamp and a relative hint.
+    // Each run row has an absolute timestamp; at least one has a relative hint
+    // (round-3: duplicate hints are deduplicated so not every row shows one).
     const rows = page.locator("ol > li");
+    let hintCount = 0;
     for (let i = 0; i < 5; i++) {
       const text = await rows.nth(i).innerText();
       expect(text).toMatch(/\d{4}/); // year in absolute timestamp
-      expect(text).toMatch(/in \d+|next/i); // relative hint
+      if (/in \d+|next/i.test(text)) hintCount++;
     }
+    // At least the first row must have a hint (dedup never strips the first)
+    expect(hintCount).toBeGreaterThanOrEqual(1);
   });
 
   test("typing 0 9 * * MON-FRI updates live with weekday 9 AM description", async ({
@@ -98,7 +102,8 @@ test.describe("Core flow 2: generate from English", () => {
     await expect(description).toContainText(/Saturday|Sunday/);
   });
 
-  test("unsupported phrase shows can't-understand message with examples; results keep previous expression", async ({
+  // Updated (round-3): English parse error blocks the result region.
+  test("unsupported phrase shows can't-understand message; round-3 fix: result region is suppressed", async ({
     page,
   }) => {
     await page.goto("/");
@@ -113,14 +118,16 @@ test.describe("Core flow 2: generate from English", () => {
     await expect(msg).toContainText(/couldn't/i);
     // Example phrases are shown as chips near the input (not inside the error div itself)
     await expect(page.getByRole("button", { name: "every weekday at 9am" })).toBeVisible();
-    // Cron input and results untouched — no silent guess.
+    // Cron input is untouched — no silent guess.
     await expect(cron).toHaveValue(before);
-    await expect(page.locator("ol > li")).toHaveCount(5);
+    // Round-3: result region blocked while English error is active
+    await expect(page.locator("ol > li")).toHaveCount(0);
 
     // Message clears once the phrase becomes parseable.
     await english.fill("every hour");
     await expect(msg).toHaveCount(0);
     await expect(cron).toHaveValue("0 * * * *");
+    await expect(page.locator("ol > li")).toHaveCount(5);
   });
 
   test("one direction only: editing the cron input leaves the English input alone", async ({
