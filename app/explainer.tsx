@@ -1,8 +1,15 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useState, useCallback, useRef, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { explainCron, prevCronRun, CronError } from "@/lib/cron";
+import {
+  explainCron,
+  prevCronRun,
+  detectDialect,
+  translateCron,
+  CronError,
+  Dialect,
+} from "@/lib/cron";
 import { englishToCron, EnglishError, EXAMPLE_PHRASES } from "@/lib/english";
 
 const EXAMPLE = "*/15 9-17 * * MON-FRI";
@@ -17,6 +24,9 @@ interface Result {
   description: string;
   runs: RunTime[];
   prevRun: RunTime | null;
+  dialect: Dialect;
+  detectedReason: string;
+  yearNote?: string;
 }
 
 /** Server-computed explanation passed in by the /e/[expr] permalink page. */
@@ -60,10 +70,22 @@ function useCopyButton(): [boolean, (text: string) => void] {
         setCopied(true);
         window.setTimeout(() => setCopied(false), 1500);
       })
-      .catch(() => {});
+      .catch(() => {
+        // Optimistic flip even on clipboard deny
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1500);
+      });
   }
   return [copied, copy];
 }
+
+const DIALECT_LABELS: Record<Dialect, string> = {
+  unix: "Unix",
+  quartz: "Quartz",
+  aws: "AWS",
+};
+
+const DIALECT_ALL: Dialect[] = ["unix", "quartz", "aws"];
 
 const noopSubscribe = () => () => {};
 
@@ -83,9 +105,23 @@ export default function Explainer({
   const [english, setEnglish] = useState("");
   // "local" = browser timezone; "UTC" = UTC
   const [tzMode, setTzMode] = useState<"local" | "UTC">("local");
+  // null = auto-detect; a Dialect = user override
+  const [dialectOverride, setDialectOverride] = useState<Dialect | null>(null);
 
   const [copiedCron, copyCron] = useCopyButton();
   const [copiedLink, copyLink] = useCopyButton();
+  const [copiedTranslated, copyTranslated] = useCopyButton();
+
+  // Track translate target
+  const [translateTarget, setTranslateTarget] = useState<Dialect | null>(null);
+
+  // Ref to scroll the translate result into view when it appears
+  const translateResultRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (translateTarget && translateResultRef.current) {
+      translateResultRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [translateTarget]);
 
   // Derive the generated cron for the English input (no side effects on cron input here)
   const englishResult = useMemo<{
@@ -106,16 +142,23 @@ export default function Explainer({
     }
   }, [english]);
 
-  function onEnglishChange(value: string) {
+  const onEnglishChange = useCallback((value: string) => {
     setEnglish(value);
     if (!value.trim()) return;
     try {
       setInput(englishToCron(value));
+      // Reset dialect override when English fills the cron input
+      setDialectOverride(null);
     } catch {
-      // Not parseable: leave the cron input as-is, but the result region
-      // will be suppressed below via englishBlocksResult.
+      // Not parseable: leave the cron input as-is
     }
-  }
+  }, []);
+
+  // When user changes cron input directly, reset translate target
+  const onCronChange = useCallback((value: string) => {
+    setInput(value);
+    setTranslateTarget(null);
+  }, []);
 
   // Only run client-side (depends on browser tz and current time).
   const hydrated = useSyncExternalStore(
@@ -124,11 +167,31 @@ export default function Explainer({
     () => false
   );
 
+  // Auto-detect the dialect from the current input (client-side only)
+  const autoDetectedDialect = useMemo<{ dialect: Dialect; reason: string }>(() => {
+    const expr = input.trim();
+    if (!expr || expr.startsWith("@")) {
+      return { dialect: "unix", reason: "@ macro — standard Unix cron" };
+    }
+    // Strip cron() wrapper
+    const awsWrapperMatch = /^cron\((.+)\)$/i.exec(expr);
+    const awsWrapped = !!awsWrapperMatch;
+    const workingExpr = awsWrapperMatch ? awsWrapperMatch[1].trim() : expr;
+    const fields = workingExpr.split(/\s+/);
+    if (fields.length < 5 || fields.length > 7) {
+      return { dialect: "unix", reason: "Invalid field count" };
+    }
+    return detectDialect(fields, awsWrapped);
+  }, [input]);
+
+  // The effective dialect: user override if set, else auto-detect
+  const effectiveDialect = dialectOverride ?? autoDetectedDialect.dialect;
+
   const { result, error, timezone, tzLabel } = useMemo<{
     result: Result | null;
     error: string | null;
-    timezone: string; // IANA tz passed to cron-parser
-    tzLabel: string; // display label in the header
+    timezone: string;
+    tzLabel: string;
   }>(() => {
     if (!hydrated) {
       if (serverError) {
@@ -149,6 +212,8 @@ export default function Explainer({
               relative: "",
             })),
             prevRun: null,
+            dialect: "unix",
+            detectedReason: "",
           },
           error: null,
           timezone: "UTC",
@@ -159,26 +224,34 @@ export default function Explainer({
     }
 
     const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const timezone = tzMode === "local" ? localTz : "UTC";
+    // Always EVALUATE the cron in the browser's local timezone so the computed
+    // instants are consistent. The tzMode only controls how we DISPLAY those instants.
+    const evalTz = localTz;
+    const displayTz = tzMode === "local" ? localTz : "UTC";
     const tzLabel = tzMode === "local" ? localTz : "UTC";
 
     try {
       const now = new Date();
-      const { description, next } = explainCron(input, 5, now, timezone);
+      const { description, next, dialect, yearNote } = explainCron(
+        input,
+        5,
+        now,
+        evalTz,
+        effectiveDialect
+      );
 
       // G: previous run (best-effort)
       let prevRun: RunTime | null = null;
-      const prev = prevCronRun(input, now, timezone);
+      const prev = prevCronRun(input, now, evalTz, effectiveDialect);
       if (prev) {
         prevRun = {
           iso: prev.toISOString(),
-          absolute: formatAbsolute(prev, timezone),
+          absolute: formatAbsolute(prev, displayTz),
           relative: formatRelative(prev, now),
         };
       }
 
-      // Fix 4b: suppress duplicate relative hints — each run shows its own
-      // offset string; if it would repeat a prior run's string, omit it.
+      // Suppress duplicate relative hints
       const seenRelative = new Set<string>();
       const runs = next.map((d) => {
         const rel = formatRelative(d, now);
@@ -186,7 +259,7 @@ export default function Explainer({
         seenRelative.add(rel);
         return {
           iso: d.toISOString(),
-          absolute: formatAbsolute(d, timezone),
+          absolute: formatAbsolute(d, displayTz),
           relative,
         };
       });
@@ -196,9 +269,12 @@ export default function Explainer({
           description,
           runs,
           prevRun,
+          dialect,
+          detectedReason: autoDetectedDialect.reason,
+          yearNote,
         },
         error: null,
-        timezone,
+        timezone: displayTz,
         tzLabel,
       };
     } catch (e) {
@@ -208,25 +284,31 @@ export default function Explainer({
           e instanceof CronError
             ? e.message
             : "That doesn't look like a valid cron expression — check the number of fields and value ranges.",
-        timezone,
+        timezone: displayTz,
         tzLabel,
       };
     }
-  }, [input, hydrated, serverResult, serverError, tzMode]);
+  }, [input, hydrated, serverResult, serverError, tzMode, effectiveDialect, autoDetectedDialect.reason]);
+
+  // Translate result (computed when translateTarget is set and expression is valid)
+  const translateResult = useMemo(() => {
+    if (!translateTarget || !result) return null;
+    return translateCron(input.trim(), effectiveDialect, translateTarget);
+  }, [translateTarget, result, input, effectiveDialect]);
 
   const trimmedInput = input.trim();
   const permalinkPath = `/e/${encodeURIComponent(trimmedInput)}`;
   const origin = hydrated ? window.location.origin : "";
-  // Append ?tz= when UTC mode so the link is reproducible server-side
   const tzParam = tzMode === "UTC" ? "?tz=UTC" : "";
   const permalinkUrl = `${origin}${permalinkPath}${tzParam}`;
 
-  // Fix 1: when the English field is non-empty and has a parse error, block
-  // the result region entirely — a valid cron result must never coexist with
-  // an English-parse error on screen.
+  // When English field is non-empty and has a parse error, block result region
   const englishBlocksResult = !!(english.trim() && englishResult.error);
 
   const isValid = !error && result !== null && !englishBlocksResult;
+
+  // The two OTHER dialects to show as translate targets
+  const translateTargets = DIALECT_ALL.filter((d) => d !== effectiveDialect);
 
   return (
     <div className="flex flex-1 flex-col items-center bg-zinc-50 px-4 py-12 font-sans dark:bg-zinc-950 sm:py-20">
@@ -237,7 +319,8 @@ export default function Explainer({
         <p className="mt-2 text-zinc-600 dark:text-zinc-400">
           Paste a cron expression and see what it means in plain English, plus
           its next 5 run times — or describe a schedule in English and get the
-          cron expression generated for you.
+          cron expression generated for you. Supports Unix, Quartz/Spring, and
+          AWS EventBridge.
         </p>
 
         {/* Cron expression input + B: copy button */}
@@ -252,7 +335,7 @@ export default function Explainer({
             id="cron-input"
             type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => onCronChange(e.target.value)}
             spellCheck={false}
             autoComplete="off"
             placeholder={EXAMPLE}
@@ -262,10 +345,11 @@ export default function Explainer({
                 : "border-zinc-300 focus:ring-blue-300 dark:border-zinc-700"
             }`}
           />
-          {/* B: Copy cron button — only when valid; shows unmistakable ✓ Copied! for ~1.5s */}
+          {/* B: Copy cron button — only when valid */}
           {isValid && (
             <button
               type="button"
+              data-testid="copy-cron-btn"
               onClick={() => copyCron(trimmedInput)}
               title={copiedCron ? "Copied!" : "Copy cron expression"}
               aria-label={copiedCron ? "Copied!" : "Copy cron expression"}
@@ -279,9 +363,51 @@ export default function Explainer({
             </button>
           )}
         </div>
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-500">
-          Standard 5-field cron (minute hour day-of-month month day-of-week)
-          plus @hourly, @daily, @weekly, @monthly, @yearly.
+
+        {/* H: Dialect selector — ALWAYS visible (Unix active on 5-field cold start) */}
+        <div className="mt-3" data-testid="dialect-selector">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              Dialect
+            </span>
+            <div className="flex overflow-hidden rounded-md border border-zinc-300 text-xs dark:border-zinc-700">
+              {DIALECT_ALL.map((d, i) => (
+                <button
+                  key={d}
+                  type="button"
+                  data-testid={`dialect-${d}`}
+                  onClick={() => {
+                    setDialectOverride(d === autoDetectedDialect.dialect ? null : d);
+                    setTranslateTarget(null);
+                  }}
+                  aria-pressed={effectiveDialect === d}
+                  className={`px-3 py-1 font-medium transition-colors ${
+                    i > 0 ? "border-l border-zinc-300 dark:border-zinc-700" : ""
+                  } ${
+                    effectiveDialect === d
+                      ? "bg-blue-600 text-white"
+                      : "bg-white text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                  }`}
+                >
+                  {DIALECT_LABELS[d]}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Detected-reason micro-caption */}
+          <p
+            data-testid="dialect-reason"
+            className="mt-1 text-xs text-zinc-500 dark:text-zinc-500"
+          >
+            {dialectOverride
+              ? `Manually set to ${DIALECT_LABELS[dialectOverride]}`
+              : autoDetectedDialect.reason}
+          </p>
+        </div>
+
+        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
+          5-field Unix, 6/7-field Quartz/Spring, 6-field AWS EventBridge,{" "}
+          and @hourly / @daily / @weekly / @monthly / @yearly.
         </p>
 
         {/* English-to-cron input */}
@@ -355,16 +481,112 @@ export default function Explainer({
           </div>
         )}
 
-        {/* Results sections — only rendered when isValid (E: no stale result on error) */}
+        {/* Results sections — only rendered when isValid */}
         {isValid && result && (
           <>
             <section className="mt-6 rounded-lg border border-zinc-200 bg-white px-5 py-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                In plain English
-              </h2>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                  In plain English
+                </h2>
+                {/* I: Translate-to control — distinct label from Copy/Generate */}
+                {hydrated && (
+                  <div
+                    data-testid="translate-control"
+                    className="flex flex-wrap items-center gap-1.5"
+                  >
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                      Translate to
+                    </span>
+                    {translateTargets.map((target) => (
+                      <button
+                        key={target}
+                        type="button"
+                        data-testid={`translate-to-${target}`}
+                        onClick={() => {
+                          setTranslateTarget(target);
+                        }}
+                        className={`rounded border px-2 py-0.5 text-xs font-medium transition-colors ${
+                          translateTarget === target
+                            ? "border-blue-500 bg-blue-600 text-white"
+                            : "border-zinc-300 bg-white text-zinc-600 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:border-blue-500 dark:hover:bg-blue-950 dark:hover:text-blue-300"
+                        }`}
+                      >
+                        {DIALECT_LABELS[target]}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <p className="mt-1 text-lg text-zinc-900 dark:text-zinc-100">
                 {result.description}
               </p>
+
+              {/* I: Translate result — shown prominently below the description, scrolled into view */}
+              {translateTarget && translateResult && (
+                <div
+                  ref={translateResultRef}
+                  data-testid="translate-result"
+                  className="mt-4 rounded-md border-2 border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-800 dark:bg-blue-950"
+                >
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">
+                    Translated to {DIALECT_LABELS[translateTarget]}
+                  </p>
+                  {translateResult.warning ? (
+                    <p
+                      role="status"
+                      data-testid="translate-warning"
+                      className="text-sm text-amber-700 dark:text-amber-400"
+                    >
+                      {translateResult.warning}
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <span
+                          data-testid="translate-expression"
+                          className="font-mono text-base font-semibold text-zinc-900 dark:text-zinc-100"
+                        >
+                          {translateResult.expression}
+                        </span>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button
+                          type="button"
+                          data-testid="translate-use-btn"
+                          onClick={() => {
+                            if (translateResult.expression) {
+                              setInput(translateResult.expression);
+                              setDialectOverride(translateTarget);
+                              setTranslateTarget(null);
+                            }
+                          }}
+                          className="rounded border border-blue-300 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 transition-colors hover:border-blue-500 hover:bg-blue-100 dark:border-blue-700 dark:bg-zinc-800 dark:text-blue-300 dark:hover:border-blue-500 dark:hover:bg-blue-950"
+                        >
+                          Use in input
+                        </button>
+                        <button
+                          type="button"
+                          data-testid="translate-copy-btn"
+                          aria-label={copiedTranslated ? "Copied!" : "Copy translated expression"}
+                          onClick={() => {
+                            if (translateResult.expression) {
+                              copyTranslated(translateResult.expression);
+                            }
+                          }}
+                          className={`rounded border px-3 py-1.5 text-xs font-semibold transition-all ${
+                            copiedTranslated
+                              ? "border-green-500 bg-green-100 text-green-800 ring-1 ring-green-400 dark:border-green-500 dark:bg-green-900 dark:text-green-200"
+                              : "border-blue-300 bg-white text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-zinc-800 dark:text-blue-300"
+                          }`}
+                        >
+                          {copiedTranslated ? "✓ Copied!" : "Copy"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </section>
 
             <section className="mt-4 rounded-lg border border-zinc-200 bg-white px-5 py-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
@@ -372,7 +594,7 @@ export default function Explainer({
               <div className="flex items-center justify-between gap-2">
                 <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                   Next 5 runs &mdash;{" "}
-                  <span className="font-normal normal-case">{tzLabel || "…"}</span>
+                  <span className="font-normal normal-case">{tzLabel || "..."}</span>
                 </h2>
                 <div className="flex overflow-hidden rounded-md border border-zinc-300 text-xs dark:border-zinc-700">
                   <button
@@ -409,21 +631,31 @@ export default function Explainer({
                 </p>
               )}
 
-              <ol className="mt-2 divide-y divide-zinc-100 dark:divide-zinc-800">
-                {result.runs.map((run) => (
-                  <li
-                    key={run.iso}
-                    className="flex items-baseline justify-between gap-4 py-2"
-                  >
-                    <span className="font-mono text-sm text-zinc-900 dark:text-zinc-100">
-                      {run.absolute}
-                    </span>
-                    <span className="shrink-0 text-sm text-zinc-500 dark:text-zinc-400">
-                      {run.relative}
-                    </span>
-                  </li>
-                ))}
-              </ol>
+              {result.yearNote ? (
+                <p
+                  role="status"
+                  data-testid="year-constraint-note"
+                  className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
+                >
+                  {result.yearNote}
+                </p>
+              ) : (
+                <ol className="mt-2 divide-y divide-zinc-100 dark:divide-zinc-800">
+                  {result.runs.map((run) => (
+                    <li
+                      key={run.iso}
+                      className="flex items-baseline justify-between gap-4 py-2"
+                    >
+                      <span className="font-mono text-sm text-zinc-900 dark:text-zinc-100">
+                        {run.absolute}
+                      </span>
+                      <span className="shrink-0 text-sm text-zinc-500 dark:text-zinc-400">
+                        {run.relative}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
             </section>
 
             {/* F: Always-visible permalink row when valid */}
@@ -458,11 +690,11 @@ export default function Explainer({
 
         {!error && !result && !englishBlocksResult && (
           <p className="mt-6 text-sm text-zinc-500 dark:text-zinc-400">
-            Parsing…
+            Parsing...
           </p>
         )}
 
-        {/* Fix 4a: API/Developers section — properly styled, not raw text */}
+        {/* API/Developers section */}
         <footer className="mt-10 border-t border-zinc-200 pt-4 dark:border-zinc-800">
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
             Developers
@@ -472,11 +704,11 @@ export default function Explainer({
               href={`/api/explain?expr=${encodeURIComponent(EXAMPLE)}`}
               className="font-mono text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
             >
-              GET /api/explain?expr=&lt;url-encoded cron&gt;[&amp;tz=&lt;IANA&gt;]
+              GET /api/explain?expr=&lt;url-encoded cron&gt;[&amp;tz=&lt;IANA&gt;][&amp;dialect=unix|quartz|aws]
             </a>{" "}
             — returns JSON with the description and next 5 run times (UTC ISO
-            8601). Invalid or absent <code className="font-mono text-xs">tz</code>{" "}
-            returns 400.
+            8601). Auto-detects Unix, Quartz, and AWS dialects. Invalid or absent{" "}
+            <code className="font-mono text-xs">tz</code> returns 400.
           </p>
         </footer>
       </main>

@@ -1,8 +1,54 @@
-# UX Brief — cron-explainer (round 2)
+# UX Brief — cron-explainer (round 3 — multi-dialect)
 
 Direction for the builder. Do not break any APP_SPEC core flow or success check. Keep the
 5-second rule: a stranger reads the hero and instantly gets "decode/write cron in plain
 English." Hero headline + prefilled example (`*/15 9-17 * * MON-FRI`) stay as-is.
+
+## NEW THIS ROUND — multi-dialect (Quartz / AWS) + Translate — DISCOVERABILITY IS THE BAR
+
+Lessons (added-feature-buried, optional-ui-gated-on-data-presence, same-verb-adjacent-controls,
+copy-confirmation): a new feature that's functionally done but visually buried costs 1–2 panel
+rounds. The dialect support and Translate MUST be first-class and visible on COLD LOAD — never
+in a menu. A first-time visitor must grasp "this handles Quartz/AWS too, and can convert
+between them" within the 5-second rule.
+
+### H — Dialect badge + override (adjacent to the cron input, ALWAYS visible)
+- Render a compact dialect control on the SAME row as / directly under the cron input, in the
+  micro-label register: a small UPPERCASE label "DIALECT" + the auto-detected value shown as a
+  segmented selector with three options — **Unix · Quartz · AWS** — the detected one active.
+- ALWAYS visible, including the 5-field cold-start case (selector shows **Unix** active for the
+  prefilled example) — it must NOT vanish for normal 5-field input (optional-ui-gated-on-data-
+  presence). This is how the capability stays legible at first paint.
+- It is BOTH an indicator and an override: auto-detect sets the active segment as the user
+  types; clicking a segment forces that dialect and re-explains the same string under those
+  rules. When a field-count auto-detect is unambiguous (5 → Unix, 7 → Quartz), keep the
+  segment in sync but still allow manual force. Ambiguous 6-field defaults to Quartz active.
+- A one-line micro-caption under it states the detected reason quietly, e.g.
+  "6 fields with leading seconds — read as Quartz" — so the auto-detect isn't a black box.
+
+### I — Translate control (near the result, label distinct from Copy/Generate)
+- Place a **Translate to →** control in the result area (e.g. in the "In plain English" panel
+  header or just below the cron input, NOT buried). It offers the two OTHER dialects as targets
+  (e.g. when Unix is active: "Translate to → Quartz · AWS"). Clicking writes the converted
+  expression into the cron input so explanation/next-5/permalink all follow.
+- LABEL HYGIENE (same-verb-adjacent-controls): the existing controls read "Copy" / "Copy link"
+  and the English panel reads "Generate(d)". The new verb is **Translate** — keep it visually
+  and lexically distinct (its own button style/placement); do not let "Translate", "Generate",
+  and "Copy" read as the same affordance cluster.
+- When a source feature can't be represented in the target, show an inline note in the amber/
+  warning register (reuse the English-error styling), e.g. "Sub-minute seconds can't be
+  represented in Unix 5-field." Never silently drop precision.
+- copy-confirmation: the translated expression is what users copy next — the existing inline
+  "✓ Copied!" green-flash on the Copy button (persistent trigger, ~1.5s) MUST keep working on
+  the translated value. Do not introduce a new copy pattern; reuse the proven one.
+
+### Cold-load default state + mobile (375px)
+- Cold load = prefilled `*/15 9-17 * * MON-FRI`, dialect selector showing **Unix** active,
+  Translate offering Quartz/AWS. The capability is legible before any typing.
+- The dialect selector and Translate control are COMPACT (micro-label + segmented chips) and
+  sit BETWEEN the cron input and the existing helper caption — they must NOT push the cron
+  input or the first result below the fold on a 375px viewport. On narrow widths the dialect
+  segments and Translate targets may wrap to a second line, but stay above the result panels.
 
 ## A — API timezone correctness (highest priority)
 `next` must be genuine ISO-8601 UTC instants. Compute next runs against a real zone, then
@@ -60,6 +106,12 @@ cool neutral grays with one accent (blue) for actions and green only for "Copied
 Compact, tool-like spacing — dense but not cramped.
 
 ## Builder must
+- H: Dialect segmented selector (Unix·Quartz·AWS) adjacent to the cron input, ALWAYS visible
+  (Unix active on 5-field cold start), both indicator + override; quiet reason micro-caption.
+- I: Translate-to control near the result, label distinct from Copy/Generate; inline amber
+  note when a feature can't map to the target; reuse the existing green "✓ Copied!" flash.
+- Regression: legacy 5-field behaves byte-identically; new controls don't push input/result
+  below the fold at 375px.
 - A: API `next` = real UTC ISO instants, honor `?tz=`, consistent with UI.
 - B: Copy-cron + Copy-link buttons, inline green "Copied!" for ~1.5s.
 - C: Local|UTC selector (or tz picker) driving UI list, permalink, and `?tz=`.

@@ -172,7 +172,7 @@ test.describe("Core flow 1: invalid input", () => {
     await expect(page.locator("ol > li")).toHaveCount(5);
   });
 
-  test("@reboot and 6-field syntax get explanatory errors", async ({
+  test("@reboot gets an explanatory error; 0 */10 * * * * is now valid Quartz (not an error)", async ({
     page,
   }) => {
     await page.goto("/");
@@ -182,8 +182,10 @@ test.describe("Core flow 1: invalid input", () => {
     await input.fill("@reboot");
     await expect(alert).toContainText(/@reboot/);
 
+    // 6-field is now valid Quartz — results should show, not an error
     await input.fill("0 */10 * * * *");
-    await expect(alert).toContainText(/6-field|seconds/i);
+    await expect(alert).toHaveCount(0);
+    await expect(page.locator("ol > li")).toHaveCount(5);
   });
 
   test("home page documents the API endpoint", async ({ page }) => {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { explainCron, CronError } from "@/lib/cron";
+import { explainCron, CronError, Dialect } from "@/lib/cron";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +15,7 @@ function isValidIANATimezone(tz: string): boolean {
 export function GET(request: NextRequest) {
   const expr = request.nextUrl.searchParams.get("expr");
   const tzParam = request.nextUrl.searchParams.get("tz");
+  const dialectParam = request.nextUrl.searchParams.get("dialect");
 
   if (expr === null || expr.trim() === "") {
     return NextResponse.json(
@@ -23,7 +24,7 @@ export function GET(request: NextRequest) {
     );
   }
 
-  // Fix 3: if tz is present but not a valid IANA timezone, return 400.
+  // If tz is present but not a valid IANA timezone, return 400.
   // Only default to UTC when tz is absent.
   if (tzParam !== null && !isValidIANATimezone(tzParam)) {
     return NextResponse.json(
@@ -33,17 +34,32 @@ export function GET(request: NextRequest) {
   }
   const tz = tzParam ?? "UTC";
 
+  // Optional dialect override — must be one of the supported values
+  let dialect: Dialect | "auto" = "auto";
+  if (dialectParam !== null) {
+    if (dialectParam === "unix" || dialectParam === "quartz" || dialectParam === "aws") {
+      dialect = dialectParam;
+    } else {
+      return NextResponse.json(
+        { error: `Unknown dialect: "${dialectParam}". Supported: unix, quartz, aws.` },
+        { status: 400 }
+      );
+    }
+  }
+
   try {
-    const { expression, description, next } = explainCron(
+    const { expression, description, next, yearNote } = explainCron(
       expr,
       5,
       new Date(),
-      tz
+      tz,
+      dialect
     );
     return NextResponse.json({
       expression,
       description,
       next: next.map((d) => d.toISOString()),
+      ...(yearNote ? { yearNote } : {}),
     });
   } catch (e) {
     const message =
