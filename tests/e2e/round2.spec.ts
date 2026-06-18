@@ -82,8 +82,8 @@ test.describe("Round-2: timezone toggle UI", () => {
     // Capture the first run time in Local mode
     const localFirst = await page.locator("ol > li").first().innerText();
 
-    // Switch to UTC
-    await page.getByRole("button", { name: /UTC/ }).click();
+    // Switch display to UTC (use stable testid — page now has two UTC buttons)
+    await page.getByTestId("display-tz-utc").click();
     await expect(page.locator("ol > li")).toHaveCount(5);
     const utcFirst = await page.locator("ol > li").first().innerText();
 

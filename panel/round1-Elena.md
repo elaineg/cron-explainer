@@ -1,24 +1,37 @@
-# Elena — Engineering manager
+# Elena — Round 1
+- advocacy: 8
+- clarity: Yes
+- value: Yes
 
-**Persona context:** 30-sec patience, half my day in meetings, want to settle an incident-review cron blame from my phone without pinging an engineer.
+## What I did
+Opened cold on my phone (375px) between meetings. Headline "Cron Explainer" + the
+sub-line told me exactly what it does in ~5s. It loads pre-filled with a sample so I
+saw a real output immediately — no blank-state setup, which is the only reason I didn't
+bounce. Ran my actual incident scenario: pasted `0 2 * * *` (a "nightly 2am" job someone
+swore should've fired at 2am their time), set THIS SCHEDULE RUNS IN → UTC (it's a server),
+left display on Local. Instantly got "At 02:00 AM" in English and next runs at **07:00 PM
+America/Los_Angeles** with "Runs in UTC · shown in America/Los_Angeles" right above the
+times. That's the whole incident answered in two taps. Flipped display to UTC and times
+correctly switched to 02:00 AM. Permalink carried `?src=UTC` so I could drop it in a Slack
+thread and an engineer sees the same thing — that's the bit that earns a recommend.
 
-## 1. Advocacy: 9/10 — yes, I'd recommend it
-I'd recommend this to my on-call engineers and to any PM in an incident channel. It's the rare utility that does exactly what it says, instantly, no signup, on my phone. The reason it isn't a 10: nothing here makes ME (a manager) come back daily — it's a "pull up when there's a cron argument" tool, which is exactly my use case, but the recurrence is incident-driven, not daily. For the moment I actually needed it, it nailed it.
+## Friction (brutally honest)
+- I can't enter a CLAIMED timestamp and get a yes/no "it would/wouldn't have fired at
+  3:07am." I have to read the schedule and reason myself. For an incident-blame moment
+  that's the one thing I actually wanted — the tool gets me 90% there but makes me do the
+  last mental step. This is what holds it at 8, not 9.
+- "Previous run" is the most incident-relevant line ("did it run when they claim?") but
+  it's small grey text below the next-runs and easy to miss on a phone. I'd make it bigger.
+- The dialect (Unix/Quartz/AWS) and English-generator sections are nice but add scroll
+  on mobile between my input and the answer; I scrolled past the English generator I didn't
+  need to reach my next-runs.
 
-## 2. Value clear within 30 sec? YES
-Headline "Cron Explainer" + the subhead "Paste a cron expression and see what it means in plain English, plus its next 5 run times" told me everything before I scrolled. The input is pre-filled with a working example, so I instantly saw the shape of the output. No mystery, no setup, no "create an account to continue."
-
-## 3. The incident-review win (the thing that matters to me)
-The result panel shows **"Previous run: Wed, Jun 17, 2026, 12:00 PM (5 hours ago)"** ABOVE the next-5-runs. That line is the entire reason I'd open this in an incident review: someone says "the cron should have fired at noon" and I can paste the expression on my phone and confirm/deny in 5 seconds without DMing an engineer. That single feature moves this from "neat" to "I'll actually use this."
-
-## Brutal friction
-- **Biggest:** none that blocks me. The honest nit: the "Translate to Unix" output appears as a sub-card (`Unix: 0 12 * * 1-5` with Use/Copy) but does NOT change the big input field — for a half-second I thought Translate did nothing because the top expression stayed Quartz. A stressed manager mid-incident might miss the small translated line. A one-line "translated below ↓" cue or briefly highlighting the new card would remove all doubt. Minor.
-- The dialect auto-detect hint ("6 fields with '?' ... — AWS EventBridge") is genuinely reassuring — it tells me WHY it read my expression a certain way, which preempts the exact "but it's Quartz not Unix" argument that starts these fights.
-- Garbage input ("every 5 min weekdays") gave a clean "Invalid field count" + format hint, no crash. Good.
-
-## Discoverability verdict (explicit)
-I found the **DIALECT selector (Unix/Quartz/AWS) UNPROMPTED on cold load** — it sits right under the input, above the fold on my 375px phone. The **Translate control I found UNPROMPTED too**, but only AFTER I'd pasted an expression and a dialect was active: "Translate to: Unix / AWS" lives in the result-panel header, so it doesn't exist on the blank/cold screen. That's fine — it's contextual — but it means a cold visitor who only reads the homepage won't know translation exists until they paste something.
-
-```json
-{"tester": 4, "round": 1, "clarity": "Yes", "value": "Yes", "advocacy": 9, "topComplaints": ["Translate output appears in a sub-card and does NOT update the main input field — easy to think it did nothing", "Translate control is invisible until you've pasted an expression — cold homepage doesn't advertise it"], "priorConcernsAddressed": "n/a"}
-```
+## On the timezone feature specifically
+This is the reason I'd recommend it. Source vs display is legible at a glance: SOURCE
+("THIS SCHEDULE RUNS IN") sits up by the expression, DISPLAY ("Show times in") sits in the
+results card, and the "Runs in X · shown in Y" sentence removes any doubt about which is
+which. Cost me well under 30s. The default "source = browser-local, hint: servers run in
+UTC" plus a one-tap UTC switch is exactly the right framing for a server-vs-claimed-local
+confusion. "Runs entirely in your browser — nothing is sent" reassures me about pasting a
+prod schedule. Only nit: two near-identical Local/UTC toggle pairs on a narrow screen could
+be momentarily confused if the labels weren't there — the labels save it.

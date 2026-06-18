@@ -1,32 +1,29 @@
-# Round 2 — Elena (Eng manager, no time, phone-first)
+# Elena — Round 2
+- advocacy: 9
+- clarity: Yes
+- value: Yes
+- prior concerns addressed: Yes — the two timezone toggles are now in ONE grouped card, stacked with their own captions; no more far-apart-pair confusion.
 
-## Prior concern re-check (round 1: Translate read as a no-op, 9/10)
-RESOLVED: **Y**. Picked a cron, clicked "Translate to → Quartz": a prominent
-blue-highlighted box appears labeled **"TRANSLATED TO QUARTZ"** with the result
-`0 */15 9-17 ? * MON-FRI` plus "Use in input" and "Copy" buttons. The active dialect
-button highlights blue. Zero ambiguity now — I can SEE it did something. Copy actually
-wrote the AWS expr to clipboard and flashed **"✓ Copied!"**. "Use in input" pushed the
-translated expr into the top input AND auto-switched the dialect to match. Clean loop,
-no console errors.
+## What I did
+Opened cold on a 375px phone viewport. Ran my real incident scenario: pasted `0 2 * * *`,
+set RUNS IN (source) = UTC, SHOW TIMES IN (display) = Local. Read the result. Then squinted
+at just the timezone card to judge it at a glance.
 
-## 1. Advocacy: 9/10 — yes, I'd recommend it
-For my world this is genuinely useful: in an incident review I pasted `30 2 * * 1` on my
-phone and instantly got "At 02:30 AM, only on Monday" + "Previous run: Mon, Jun 15, 3 days
-ago." That answers "did it run when they claimed?" without pinging an engineer — which is
-the whole point. No setup, no login, works at 375px. The translate fix removes the one
-thing that nagged me last round. Held back from 10 only because translate is a niche bonus
-I'd rarely use; the core explain+last-run is the reason I'd bring it up.
+## Friction (brutally honest)
+Almost none this round. The "Previous run: Wed, Jun 17, 2026, 07:00 PM (17 hours ago)" line
+is still on the small side, but it's the exact thing I need in an incident and it IS there,
+so I'll stop griping. Still missing (and I know it's out of scope for THIS feature): I can't
+type a CLAIMED firing timestamp and get a yes/no "did it fire at 3:07am?" — I have to eyeball
+the run list and do the comparison in my head. That's the one thing that keeps me from a 10,
+and it's a real feature gap for the incident-review use case, not a defect in the tz work.
 
-## 2. Value clear? Yes
-"Paste a cron expression and see what it means in plain English, plus its next 5 run times"
-— I knew what it was and that it was for me in under 10 seconds.
-
-## 3. Brutal friction / regressions
-None blocking. Minor: the AWS copy output came out as `*/15 9-17 ? * MON-FRI *` with a
-trailing ` *` (6th year field) — correct AWS but the dangling asterisk looks odd to a
-skimmer. Cosmetic, not a blocker. No regressions elsewhere; explain, next-5-runs,
-prev-run, and permalink all still work.
-
-```json
-{"tester": 9, "round": 2, "clarity": "Yes", "value": "Yes", "advocacy": 9, "topComplaints": ["AWS translate output shows a trailing bare '*' year field that looks odd to a skimmer (cosmetic)"], "priorConcernsAddressed": "all"}
-```
+## On the timezone feature specifically
+Fixed and genuinely good. Both toggles now sit in a single bordered card: "RUNS IN" with its
+Local|UTC pill + a "UTC" readout, then the helper line "Servers usually run cron in UTC —
+switch the source to UTC if this runs on a server," then "SHOW TIMES IN" with its Local|UTC
+pill + "Local (America/Los_Angeles)" readout. The bold caption sits directly above each toggle
+and the active choice is a solid blue pill, so at a glance on the narrow screen I instantly
+know which is source and which is display — the round-1 ambiguity is gone. The result panel
+even restates it: "Runs in UTC · shown in America/Los_Angeles," and a 2am-UTC job correctly
+showed as 7:00 PM Pacific. That's exactly the answer I needed in an incident, on my phone,
+without pinging an engineer. This is still the feature I'd recommend the app for.

@@ -1,21 +1,39 @@
-# Rob — Brand/visual designer
+# Rob — Round 1
+- advocacy: 8
+- clarity: Yes
+- value: Yes
 
-**Who I am here:** I'm not a dev. I set up one `0 */4 * * *` backup cron for client deliverables ages ago and come back maybe once a month to remember what it does and when the next backup fires. That's my entire relationship with cron.
+## What I did
+Loaded cold. The headline "Cron Explainer" + subhead "Paste a cron expression and see what
+it means in plain English, plus its next 5 run times" told me what this is in about 5
+seconds — no guessing. Cleared the prefilled example, pasted my real `0 */4 * * *`. Got
+"On the hour, every 4 hours" plus next 5 runs AND a "Previous run: ... (3 hours ago)" line.
+That previous-run line is the thing I actually open these for — confirms my last backup
+already fired and the next is "in 36 minutes." Clean.
 
-## 1. Advocacy: 8/10
-I'd recommend it — but only to the right person. For ME, in my niche use, it did exactly what I needed instantly: pasted `0 */4 * * *`, got "On the hour, every 4 hours" and a clean list of the next 5 runs with "in 3 hours / in 7 hours" relative labels AND a "Previous run: ...04:00 PM (35 minutes ago)" line. That previous-run line is the thing — it answers my real question ("did my last backup already run?") without me doing date math. I'd tell a developer friend "just use this instead of crontab.guru" unprompted. I'd tell a fellow designer about it only if they happened to mention they touched a cron once. It's a dev/ops tool; that's the ceiling on my enthusiasm, not a flaw in the build. Not a 9 because it's genuinely not a tool I'll open weekly the way a backend dev would.
+## Friction (brutally honest)
+- Minor: the two tz controls live far apart — SOURCE ("THIS SCHEDULE RUNS IN") is way up by
+  the cron box, DISPLAY ("Show times in") is down next to the run list. I didn't connect
+  them as a pair until I'd scrolled twice. They'd read as one concept if they were closer.
+- The DEVELOPERS / API block at the bottom is noise for me — I'm not hitting an endpoint, I
+  just want the times. Harmlessly ignorable, but it's the longest block on the page.
+- "Copy" / "Copy link" — clicked, label behavior fine (copy verified visually; clipboard
+  read blocked in test env, not reporting as a bug).
+- Nothing broke. No console errors. Parsed every form of my expression. Fast.
 
-## 2. Value clear in 30 seconds? YES
-The H1 "Cron Explainer" plus the subhead "Paste a cron expression and see what it means in plain English, plus its next 5 run times" told me precisely what it does. The field was even pre-filled with a sample so I saw a live decoded result before typing anything. Zero confusion, no signup, no clutter. I could explain it to a friend in one sentence.
+## On the timezone feature specifically
+This is the part I expected to be over my head, and it mostly wasn't — because of ONE line.
+By default both are "Local," times show in my Pacific, and I can completely ignore the whole
+thing. That's the right default for an occasional user: invisible until I want it.
 
-## 3. Brutal friction
-**Biggest thing:** honestly, nothing is broken — so the "biggest" gripe is mild. The phrase "On the hour, every 4 hours" is technically right but made me pause for a half-second ("on the hour" = at minute 0). For a fuzzy-memory user like me, "At minute 0, every 4 hours (12am, 4am, 8am, ...)" would've been instantly unambiguous. The next-runs list eventually shows me the actual clock times, so I got there, but the one-liner could spell out the hours.
-Minor: the page is dense with dev stuff (DIALECT toggles, a "DEVELOPERS" API section, permalink) that I'll never use — fine for the target dev, slightly noisy for me, but it never blocked me.
-Nice touch I didn't expect: typing a 4-field typo gave "it has 4 fields. Expected at least 5 fields: minute hour day-of-month month day-of-week" — that's the exact hint someone who forgot the syntax needs.
+The win: I flipped SOURCE to UTC (the helper text literally says "switch the source to UTC
+if this runs on a server" — that IS my backup script). The runs shifted to 1/5/9 PM Pacific
+and a line appeared: "Runs in UTC · shown in America/Los_Angeles." THAT sentence is what
+makes two selectors safe for someone like me — it spells out which is which in English so I
+don't have to hold "source vs display" in my head. Without that line, two tz dropdowns would
+have just confused me. With it, it answered my actual question: "my server runs UTC, when
+does it fire MY time."
 
-## Discoverability of dialect selector + Translate control
-FOUND BOTH UNPROMPTED on cold load. The "DIALECT — Unix / Quartz / AWS" toggle sits right under the input, and "Translate to — Quartz / AWS" lives in the top-right of the plain-English result card. I clicked Translate→AWS and it correctly produced `AWS: 0 */4 ? * * *` (with the AWS `?` quirk) plus "Use" and "Copy" buttons. Worked first try. As a non-dev I don't need dialects, but they were obvious, not buried.
-
-```json
-{"tester": 1, "round": 1, "clarity": "Yes", "value": "Yes", "advocacy": 8, "topComplaints": ["plain-English one-liner 'On the hour' is mildly ambiguous vs spelling out the hours", "dev-oriented sections (DEVELOPERS API, dialect toggles) add mild noise for a non-dev"], "priorConcernsAddressed": "n/a"}
-```
+Knock for the 8 not a 9: I had to discover that myself, and the two selectors being far
+apart on the page makes the source/display relationship less obvious than it should be. Put
+them next to each other (or one labeled "runs in __ , show in __" row) and this is a 9.

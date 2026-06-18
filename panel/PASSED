@@ -1,0 +1,1 @@
+2026-06-18 round2 PASS (audience-weighted): in-audience 9/9 at adv>=9, clarity+value 10/10. Timezone-aware next-run feature. R1 3/9 -> R2 9/9 after pairing the two tz selectors + regrouping helper lines (1 fix loop).

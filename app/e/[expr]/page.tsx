@@ -7,6 +7,7 @@ import { explainCron, decodeExpressionParam, CronError } from "@/lib/cron";
 export const dynamic = "force-dynamic";
 
 type Params = Promise<{ expr: string }>;
+type SearchParams = Promise<{ tz?: string; src?: string }>;
 
 function explain(raw: string): {
   expression: string;
@@ -44,14 +45,29 @@ export async function generateMetadata({
   return { title: `${expression} — Cron Explainer` };
 }
 
-export default async function PermalinkPage({ params }: { params: Params }) {
+export default async function PermalinkPage({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams: SearchParams;
+}) {
   const { expr } = await params;
+  const sp = await searchParams;
   const { expression, serverResult, serverError } = explain(expr);
+
+  // ?tz= = display timezone (legacy "UTC" or any IANA; omitted = local)
+  const initialDisplayTz = sp.tz ? sp.tz : undefined;
+  // ?src= = source/execution timezone (any IANA; omitted = local)
+  const initialSrcTz = sp.src ? sp.src : undefined;
+
   return (
     <Explainer
       initialExpression={expression}
       serverResult={serverResult}
       serverError={serverError}
+      initialDisplayTz={initialDisplayTz}
+      initialSrcTz={initialSrcTz}
     />
   );
 }

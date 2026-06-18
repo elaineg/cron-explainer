@@ -2,8 +2,9 @@
 
 Purpose: For developers and ops folks who can't read or write cron at a glance — paste a
 cron expression and instantly see what it means in plain English plus the next 5 times it
-will run in your local timezone, or type a plain-English schedule and get the cron
-expression generated for you.
+will run — in your timezone or any IANA zone, with a separate "this schedule runs in [tz]"
+source selector so a UTC server cron reads correctly in local time — or type a plain-English
+schedule and get the cron expression generated for you.
 
 Core flows:
 1. Explain an expression in ANY supported dialect (including invalid input): the user types
@@ -16,14 +17,30 @@ Core flows:
    (e.g. flip an ambiguous 6-field expression between Quartz and AWS). Default dialect for a
    bare 5-field expression is always Unix; the ambiguous-6-field deterministic default is
    Quartz (override to AWS when desired). As the user types (no submit button required), the
-   page shows (a) a one-sentence plain-English explanation and (b) the next 5 run times in the
-   browser's local timezone, each as an absolute timestamp (e.g. "Thu, Jun 11 2026, 14:30")
-   plus a relative hint (e.g. "in 12 minutes"); for Quartz seconds expressions the next-5
-   computation HONORS the seconds field. The local timezone name is labeled near the list. Any
+   page shows (a) a one-sentence plain-English explanation and (b) the next 5 run times,
+   each as an absolute timestamp (e.g. "Thu, Jun 11 2026, 14:30") plus a relative hint
+   (e.g. "in 12 minutes"); for Quartz seconds expressions the next-5 computation HONORS the
+   seconds field. The timezone the times are shown in is labeled near the list. Any
    string that is invalid in ALL dialects (wrong field count for every dialect, out-of-range
    values, garbage) shows a clear inline error like "Not a valid cron expression: ..." with a
    short reason. The page never crashes, never shows a blank state, and the error clears as
    soon as the input becomes valid.
+   TIMEZONE (sub-capability of flow 1 — TWO independent, clearly-distinct selectors): cron has
+   TWO timezone concepts and the UI must not conflate them. (i) SOURCE / execution timezone —
+   "this schedule runs in [tz]": the timezone the cron expression is EVALUATED in, so
+   `0 9 * * *` means 9:00 in the chosen source tz. Default = the viewer's browser-local
+   timezone (PRESERVES today's computed instants exactly — no silent change to existing links),
+   with a one-click UTC option and a searchable arbitrary-IANA picker, plus a short nudge that
+   "servers usually run cron in UTC — switch the source to UTC if this runs on a server."
+   (ii) DISPLAY timezone — the timezone the resulting next-run instants are SHOWN in (this is
+   the existing Local ↔ UTC toggle, now extended to a searchable arbitrary-IANA picker; default
+   = Local, unchanged). With source ≠ display the page reads e.g. "`0 9 * * *` runs in UTC →
+   next: 2:00 AM your time." BOTH selectors are DST-CORRECT: next-run math honors daylight-
+   saving transitions in the source tz (e.g. `0 2 * * *` near a spring-forward) AND the
+   displayed wall-clock honors DST in the display tz. The labeled tz name next to the list is
+   the DISPLAY tz; the source tz is labeled on/next to its own selector. Changing either
+   selector re-renders next-5 + the relative hints immediately, with no submit. The page also
+   shows a brief "Runs entirely in your browser — nothing is sent" reassurance.
    TRANSLATE (sub-capability of flow 1): a one-click control near the result converts the
    current expression to another dialect (e.g. Unix `0 9 * * 1-5` ↔ Quartz `0 0 9 ? * MON-FRI`),
    writing the result into the input (so explanation, next-5, and permalink follow). When a
@@ -50,8 +67,12 @@ Core flows:
    for input invalid in all dialects or invalid tz. The home page documents this endpoint.
 4. Shareable permalinks: whenever the current input is a valid expression, the page shows an
    always-visible copyable permalink of the form `<origin>/e/<url-encoded-expression>` with
-   a Copy-link button that shows a green "Copied!" confirmation for ~1.5s. When UTC mode is
-   active the permalink includes `?tz=UTC`. The page also accepts `?expr=` and `?cron=`
+   a Copy-link button that shows a green "Copied!" confirmation for ~1.5s. The permalink
+   carries the chosen timezones so a shared link reproduces the same view: a DISPLAY-tz param
+   `?tz=<IANA>` (legacy `?tz=UTC` continues to mean display-in-UTC and is omitted when display
+   is Local) and a SOURCE-tz param `?src=<IANA>` (omitted when source is the default Local).
+   Opening a link with these params restores both selectors and renders identical next-5.
+   The page also accepts `?expr=` and `?cron=`
    query-string aliases that prefill the input identically to the `/e/<expr>` form.
    Opening any of these renders the app pre-filled — no extra interaction needed. Invalid
    or garbage `/e/...` paths render the app with the raw string in the input and the normal
@@ -89,6 +110,20 @@ Builder decisions (binding):
   Case-insensitive, tolerant of extra whitespace.
 - The English input does NOT round-trip from the cron input (one direction only: English →
   cron). Editing the cron input directly leaves the English input as-is.
+- TIMEZONE — source vs display are TWO independent selectors and must never be conflated.
+  SOURCE = the execution tz passed to cron-parser (`explainCron`'s `tz` arg / `prevCronRun`);
+  DISPLAY = the tz `toLocaleString` formats the resulting instants in. The cron is computed in
+  UTC-instant space; source controls WHEN it fires, display controls how that instant reads.
+  BACK-COMPAT (binding): DEFAULT source = the browser-local tz (today's `evalTz = localTz`),
+  so the prefilled example and every legacy permalink render byte-identical next-5 to today —
+  do NOT flip the default source to UTC (that would silently change existing results). UTC is
+  one click away on the source selector, not the default. Default display = Local (unchanged).
+  Both selectors use a free arbitrary-IANA list (`Intl.supportedValuesOf('timeZone')`) with
+  search — no paid/network tz service. DST correctness comes for free from cron-parser (source)
+  + `Intl`/`toLocaleString` with `timeZone` (display); add tests proving a source-tz DST case.
+- API back-compat: `/api/explain?tz=` KEEPS its existing meaning (the execution/source tz that
+  next-runs are computed in) — do NOT repurpose it. The UI permalink's `?tz=` is the DISPLAY tz
+  and `?src=` is the source tz; this UI/API split is pre-existing and stays. Document it on-page.
 
 Success checks:
 - Loading the home page shows a prefilled example expression with a non-empty English
@@ -102,6 +137,21 @@ Success checks:
 - Entering `61 * * * *` (or `not a cron`) shows an inline error mentioning the input is
   invalid; entering a valid expression afterward replaces the error with results. A string
   invalid in ALL dialects (e.g. `a b c d e f g h`) shows the inline error and never crashes.
+- TIMEZONE — back-compat default: on first load (no tz params), the prefilled example's next-5
+  and the labeled display-tz match today's output byte-for-byte (source defaults to browser
+  local, display defaults to Local). A legacy `/e/<expr>?tz=UTC` link still shows display-in-UTC.
+- TIMEZONE — source selector: with `0 9 * * *` loaded, setting SOURCE = UTC (display = Local in
+  a non-UTC zone, e.g. America/New_York) changes the next-5 wall-clock times (9:00 UTC shown as
+  04:00/05:00 ET depending on DST) and the source label reads "UTC"; the DISPLAY-tz label still
+  reads the local zone. Setting source back to Local restores today's 09:00-local times.
+- TIMEZONE — display selector: with source fixed, switching DISPLAY between Local, UTC, and an
+  arbitrary IANA zone (e.g. Asia/Tokyo) re-renders the SAME instants with the correct wall-clock
+  per zone and updates the labeled display-tz; the underlying ISO instants are unchanged.
+- TIMEZONE — DST correctness: a source-tz DST case (e.g. `0 2 * * *` with source = America/
+  New_York across the March spring-forward) computes the correct next instants (the skipped 2am
+  is handled per cron-parser), and a display-tz across its own DST shows the right wall-clock.
+- TIMEZONE — permalink round-trip: choosing a non-default source and display, copying the
+  permalink, and opening it in a fresh load restores both selectors and renders identical next-5.
 - DIALECT — Quartz seconds: entering `0 0 9 ? * MON-FRI` shows the dialect badge "Quartz", a
   description meaning 9:00 AM Monday–Friday, and 5 weekday-9:00 run times. Entering
   `*/30 * * * * *` (Quartz, 6-field) yields next-5 run times spaced exactly 30 seconds apart
@@ -150,7 +200,6 @@ Out of scope:
   not the generator input).
 - `@reboot` and non-standard macros beyond the listed `@` strings (still rejected with a
   clear error). English-generate emits Unix only — it does not target Quartz/AWS dialects.
-- Arbitrary IANA timezone picker beyond the Local ↔ UTC toggle (Local + UTC covered).
 - Accounts, saved expressions, history, rate limiting, or any persistence. (Sharing is
   permalinks only — no short links, no stored state.)
 - Explaining crontab files with multiple lines or environment variables.

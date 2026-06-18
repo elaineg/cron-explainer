@@ -1,44 +1,37 @@
-# Sam — Product manager
+# Sam — Round 1
+- advocacy: 8
+- clarity: Yes
+- value: Yes
 
-**Context:** I write tickets specifying recurring jobs. I want to paste a cron expression
-PLUS a plain-English gloss PLUS a shareable link so engineers AND stakeholders both get it.
-Today I do this by Googling "crontab guru", eyeballing the gloss, retyping it into Notion,
-and there's no link — stakeholders just see `*/15 9-17 * * MON-FRI` and glaze over.
+## What I did
+Opened cold on a 375px mobile viewport (where I live between meetings). Read the title
+"Cron Explainer" + subtitle in ~10s and immediately got it: paste cron -> plain English +
+next runs, or describe in English -> cron. Pasted `0 9 * * MON-FRI` for a real ticket I'd
+write. Got "At 09:00 AM, Monday through Friday" plus the next 5 runs and a previous-run
+line. Found the PERMALINK + Copy link near the bottom. Set SOURCE=Europe/Berlin and
+DISPLAY=Asia/Tokyo, copied the link, opened it fresh — cron, source, AND display all
+restored, and "Runs in Europe/Berlin · shown in Asia/Tokyo" reappeared. This is exactly
+the artifact I want in a ticket: cron string + English gloss + a link that re-opens with
+the same timezone framing for engineers and stakeholders.
 
-## 1. Advocacy: 9/10 — yes, I'd recommend it unprompted
-To every PM and EM I work with, and I'd drop the permalink straight into a ticket. It nails
-my exact job: the **IN PLAIN ENGLISH** card reads "Every 15 minutes, between 09:00 AM and
-05:59 PM, Monday through Friday" — that's stakeholder-ready copy I can paste verbatim. The
-**PERMALINK** ("Copy link" → `/e/<cron>`) loads in a fresh tab and restores the expression +
-gloss + next-5-runs, so engineers can click through. Crontab guru gives me none of that
-shareability. Translate-to-Quartz showed me `0 */15 9-17 ? * MON-FRI` with a Copy button —
-handy when our Spring jobs and Unix jobs disagree. Not a 10 only because the share artifact
-is a bare link with no preview/title; pasted in Slack it's just a long URL, not a card.
+## Friction (brutally honest)
+- The two timezone controls are FAR apart and look identical: SOURCE ("THIS SCHEDULE RUNS
+  IN") sits up by the cron input; DISPLAY ("Show times in") is buried inside the NEXT 5 RUNS
+  card. Both have a Local/UTC toggle + an "Other…" combobox. On mobile I had to scroll and
+  read carefully to be sure which was which. They should live side by side, or the source
+  one should be labeled "Source / where the server runs" more loudly.
+- The "Other…" combobox isn't obviously a city picker — placeholder just says "Other…". I
+  typed "Berlin" and a one-row dropdown appeared, which worked, but a less patient me might
+  not realize I can type a city. A little "type a city/IANA zone" hint would help.
+- Permalink uses `?tz=` for DISPLAY and `?src=` for SOURCE, which is backwards from the API
+  (where `?tz=` is the source). The Developers note flags this, but it's a footgun if an
+  engineer hand-edits the link. Minor, but I'd quote it in a ticket.
+- Copy link works (verified the full URL with both tz params landed on the clipboard).
 
-## 2. Value clear in 30s? YES
-Subhead says it plainly: "Paste a cron expression and see what it means in plain English,
-plus its next 5 run times... Supports Unix, Quartz/Spring, and AWS EventBridge." The
-prefilled example already showing a real gloss + run times means I understood it before
-clicking anything. No jargon wall, no signup. I knew who it's for immediately: anyone
-reading or writing a schedule.
-
-## 3. Brutal friction
-Biggest: the **shareable link is unbranded and previewless**. When I paste
-`http://localhost:3210/e/*%2F15%209-17...` into a ticket or Slack, stakeholders see an ugly
-percent-encoded URL, not "Every 15 min, weekdays 9–5 → [link]". The whole point for me is
-looking organized; a raw encoded URL slightly undercuts that. A short slug or an OG preview
-(showing the gloss as the link title) would make me share it everywhere.
-Minor: "Translate to" reveals an inline result instead of swapping the input — took me a
-beat to realize it wasn't broken; the **Use** button label is the only hint it's actionable.
-Minor: clipboard read was blocked in my test env but the button flipped to "✓ Copied!" and
-the click handler fired — copy verified visually, clipboard read blocked in test env, NOT a
-bug.
-
-## Discoverability (asked explicitly)
-I found the **DIALECT selector** (Unix/Quartz/AWS) UNPROMPTED on cold load — it sits right
-under the input on both mobile and desktop. I also found the **Translate to** control
-UNPROMPTED inside the plain-English card. Both were obvious without being told.
-
-```json
-{"tester": 0, "round": 1, "clarity": "Yes", "value": "Yes", "advocacy": 9, "topComplaints": ["Permalink is a raw percent-encoded URL with no OG preview/title — looks ugly pasted in Slack/tickets, undercuts the 'look organized' value", "'Translate to' shows an inline result rather than swapping the input — momentarily reads as broken until you spot the 'Use' button"], "priorConcernsAddressed": "n/a"}
-```
+## On the timezone feature specifically
+Genuinely useful and the killer reason I'd paste this into a ticket. "Runs in Berlin ·
+shown in Tokyo" is the one line that makes BOTH an engineer (cares where it executes) and a
+stakeholder (cares what time they'll see it) understand the schedule without a Slack
+thread. It persists into the share link and round-trips perfectly. Only gripe is the
+clarity of WHICH selector is source vs display when scanning fast on mobile — fix the
+proximity/labeling and this is a 9.

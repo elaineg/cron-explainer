@@ -1,38 +1,46 @@
-# Tomás — Operations analyst
+# Tomás — Round 1
+- advocacy: 9
+- clarity: Yes
+- value: Yes
 
-## My job, tested cold
-I inherited a server with crontab lines I didn't write. First thing I did: pasted `30 2 1 * *`.
-Got back instantly: "At 02:30 AM, on day 1 of the month" + NEXT 5 RUNS (Jul 1, Aug 1, Sep 1…) +
-"Previous run: Mon, Jun 1, 2026 (17 days ago)". That is EXACTLY what I needed and it took 3 seconds.
-The next-run list is the part I didn't know I wanted — now I can tell my boss when the job fires next.
+## What I did
+Opened cold on Edge (desktop). Title "Cron Explainer" + subtitle "Paste a cron
+expression and see what it means in plain English, plus its next 5 run times" told me
+exactly what it is in under 10 seconds — no jargon, no signup, no install. That alone is
+the win: IT blocks installs and this is just a webpage.
 
-## 1. Advocacy: 9/10
-I'd recommend this unprompted to anyone on my ops/infra team and drop it in our Teams channel.
-Why not 10: it's a single-screen utility, not a daily-driver, so "9 = bring up unprompted" fits but
-I won't open it every day. Nothing here is broken or annoying. Strong, honest 9.
+Cleared the demo, pasted my inherited `30 2 1 * *`. Got "At 02:30 AM, on day 1 of the
+month" plus the next 5 run dates. That's precisely what I needed — I now know what the
+mystery line on my server does without learning cron syntax.
 
-## 2. Value clear in 30s? YES
-Title "Cron Explainer" + subtitle "Paste a cron expression and see what it means in plain English,
-plus its next 5 run times" told me precisely what it is and that it's for me. No jargon wall.
+Then exercised both timezone selectors (see below) and read the privacy line.
 
-## 3. Brutal friction — biggest thing wrong
-Honestly minor: the "DEVELOPERS" footer shows `GET /api/explain?expr=…`. As someone wary of pasting
-company data into random sites, seeing an API endpoint made me pause and wonder if my crontab gets
-sent somewhere. I checked the network myself — it's 100% client-side, NOTHING leaves the browser as I
-type. But a non-technical user won't check. ONE line near the input like "Runs entirely in your
-browser — nothing is sent to a server" would convert my wariness into trust instantly. That's my one ask.
-Smaller: nothing else. Error messages are excellent ("it has 2 fields. Expected at least 5 fields:
-minute hour day-of-month month day-of-week") — that taught me cron structure without a manual.
+## Friction (brutally honest)
+- Minor: when I set SOURCE to UTC, the next-run dates flip to the PRIOR day (e.g.
+  "Tue, Jun 30, 2026, 07:30 PM" instead of Jul 1). Mathematically correct — 02:30 UTC
+  on the 1st is 7:30 PM Pacific on the 31st/30th — but my first half-second was "wait,
+  day-1-of-month shows the 30th?" The "Runs in UTC · shown in America/Los_Angeles" line
+  right above resolves it, so I recovered. Worth keeping that line glued to the list.
+- The DEVELOPERS / API section at the bottom is irrelevant noise to me, but it's below the
+  fold and clearly labeled, so it doesn't get in my way.
+- No console errors, instant response. Nothing felt broken.
 
-## Dialect selector + Translate: FOUND BOTH UNPROMPTED on cold load
-- DIALECT selector (Unix / Quartz / AWS pill toggle) sits directly under the input — saw it in the
-  first 5 seconds. Clear.
-- "Translate to [Quartz] [AWS]" lives in the top-right of the IN PLAIN ENGLISH result box. Saw it as
-  soon as my result appeared. Clicked "Quartz" → it showed `Quartz: 0 30 2 1 * ?` with Use/Copy
-  buttons (doesn't nuke my input — nice). AWS gave `30 2 1 * ? *`. Both correct.
-- Tried a non-Unix expr `0 15 10 ? * MON-FRI` (Quartz, with the `?`): parsed fine → "At 10:15 AM,
-  Monday through Friday" + next runs. The `?` didn't trip it up. Solid.
+## On the timezone feature specifically
+This is genuinely the feature that makes it useful for MY situation (an inherited SERVER
+crontab), not just a syntax toy. The nudge "Servers usually run cron in UTC — switch the
+source to UTC if this runs on a server" is exactly the prompt an ops person needs — I'd
+have naively read 2:30 AM as MY local time and been wrong about when the job actually
+fires. Setting SOURCE=UTC, keeping DISPLAY=Local, the block clearly said
+"Runs in UTC · shown in America/Los_Angeles" and showed me 07:30 PM my time. That "aha,
+it actually runs in my evening" is real value.
 
-```json
-{"tester": 4, "round": 1, "clarity": "Yes", "value": "Yes", "advocacy": 9, "topComplaints": ["No 'runs in your browser, nothing sent to a server' reassurance near the input — DEVELOPERS /api footer made me, a data-wary corporate user, hesitate before trusting it with internal crontab"], "priorConcernsAddressed": "n/a"}
-```
+Source-vs-display is legible to a medium-tech ops person AS LABELED: "THIS SCHEDULE RUNS
+IN" vs "Show times in" are good plain-English labels (much clearer than "source/display"
+jargon would be). The two UTC buttons being identical-looking is the one trip hazard, but
+the section headers keep them distinct. The "Previous run" line is a nice bonus for
+confirming "did last night's job fire."
+
+Privacy: "Runs entirely in your browser — nothing is sent." — yes, this reassures me. As
+someone who won't paste company data into random sites, a cron expression isn't sensitive
+anyway, but the explicit line plus the obvious client-side behavior (instant, no network
+spinner) means I'd actually use this at work without a second thought.

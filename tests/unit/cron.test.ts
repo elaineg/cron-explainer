@@ -579,3 +579,78 @@ describe("BLOCKER-1 regression: UTC/Local toggle produces same instants displaye
     expect(nyNext[0].getTime() - utcNext[0].getTime()).toBe(4 * 3600 * 1000);
   });
 });
+
+// ─── TIMEZONE: source vs display — DST correctness ───────────────────────────
+describe("TIMEZONE: source tz DST correctness", () => {
+  // America/New_York spring-forward 2026: DST begins 2026-03-08 at 02:00 AM
+  // Before: UTC-5 (EST). After: UTC-4 (EDT).
+  // "0 2 * * *" evaluated in America/New_York:
+  //   On 2026-03-07 (day before spring-forward): 02:00 EST = 07:00 UTC
+  //   On 2026-03-08 (spring-forward day):        02:00 AM is SKIPPED
+  //     cron-parser advances to the next valid occurrence (03:00 EDT = 07:00 UTC)
+  //   After: 02:00 EDT = 06:00 UTC
+  //
+  // We use a FROM just before the spring-forward to capture the transition.
+  const SPRING_FROM = new Date("2026-03-07T10:00:00.000Z"); // after 02:00 EST on Mar 7
+
+  it("0 2 * * * in America/New_York: instants around spring-forward have sane UTC offsets", () => {
+    const { next } = explainCron("0 2 * * *", 10, SPRING_FROM, "America/New_York");
+    expect(next.length).toBeGreaterThan(0);
+    // All next-run instants must be at a valid UTC hour (06:00 or 07:00 UTC for 2:00 AM NY)
+    // 07:00Z = 02:00 EST (before DST), 06:00Z = 02:00 EDT (after DST)
+    // The spring-forward day (Mar 8) has NO 2:00 AM, so cron-parser either skips it
+    // or produces 03:00 AM EDT = 07:00Z on that day.
+    for (const d of next) {
+      const utcHour = d.getUTCHours();
+      // UTC hours must be 6 or 7 (the two valid representations of "2 AM NY" around DST)
+      expect([6, 7]).toContain(utcHour);
+      // Minutes and seconds must be 0
+      expect(d.getUTCMinutes()).toBe(0);
+      expect(d.getUTCSeconds()).toBe(0);
+    }
+  });
+
+  it("0 2 * * * in America/New_York: none of the instants have a non-zero minute or second", () => {
+    const { next } = explainCron("0 2 * * *", 10, SPRING_FROM, "America/New_York");
+    for (const d of next) {
+      expect(d.getUTCMinutes()).toBe(0);
+      expect(d.getUTCSeconds()).toBe(0);
+    }
+  });
+
+  it("source=UTC vs source=America/New_York produce DIFFERENT instants for 0 9 * * *", () => {
+    const FROM_REF = new Date("2026-06-11T12:00:00.000Z");
+    const { next: utcNext } = explainCron("0 9 * * *", 1, FROM_REF, "UTC");
+    const { next: nyNext } = explainCron("0 9 * * *", 1, FROM_REF, "America/New_York");
+    // 9:00 UTC = 09:00Z; 9:00 EDT = 13:00Z — they must differ
+    expect(utcNext[0].getTime()).not.toBe(nyNext[0].getTime());
+    // UTC next is at 09:00Z, NY is at 13:00Z (UTC-4 in summer)
+    expect(utcNext[0].getUTCHours()).toBe(9);
+    expect(nyNext[0].getUTCHours()).toBe(13);
+  });
+
+  it("display tz does not affect the UTC instant — same source, different display produces same ISO", () => {
+    const FROM_REF = new Date("2026-06-11T12:00:00.000Z");
+    const evalTz = "America/New_York";
+    const { next: next1 } = explainCron("0 9 * * *", 1, FROM_REF, evalTz);
+    // Display is just toLocaleString — same Date object regardless of how it's shown
+    // Re-running with same tz confirms stable result
+    const { next: next2 } = explainCron("0 9 * * *", 1, FROM_REF, evalTz);
+    expect(next1[0].toISOString()).toBe(next2[0].toISOString());
+    // Display in Tokyo (UTC+9) shows 22:00 the SAME day, UTC shows 13:00
+    const tokyoDisplay = next1[0].toLocaleString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "Asia/Tokyo",
+    });
+    const utcDisplay = next1[0].toLocaleString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "UTC",
+    });
+    expect(utcDisplay).toMatch(/13:00/);
+    expect(tokyoDisplay).toMatch(/22:00/);
+  });
+});

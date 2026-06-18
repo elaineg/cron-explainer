@@ -86,8 +86,8 @@ test.describe("Fix 1 — UTC/Local toggle: same instants displayed in two zones"
     const localItems = await page.locator("ol > li").allInnerTexts();
     expect(localItems).toHaveLength(5);
 
-    // Switch to UTC mode
-    await page.getByRole("button", { name: /UTC/ }).click();
+    // Switch display to UTC (use stable testid — page now has two UTC buttons)
+    await page.getByTestId("display-tz-utc").click();
     await expect(page.locator("ol > li")).toHaveCount(5);
     const utcItems = await page.locator("ol > li").allInnerTexts();
     expect(utcItems).toHaveLength(5);

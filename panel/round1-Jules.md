@@ -1,39 +1,43 @@
-# Jules — Content & community marketer
+# Jules — Round 1
+- advocacy: 9
+- clarity: Yes
+- value: Yes
 
-**Task:** translate "every 6 hours on weekends" to cron for a self-hosted scheduler, no account.
+## What I did
+Cold-opened on desktop. No login wall (I'd have bounced instantly) — the line
+"Runs entirely in your browser — nothing is sent" is exactly the reassurance I look for.
+H1 "Cron Explainer" + the subhead ("Paste a cron expression... or describe a schedule in
+English and get the cron expression generated for you") told me what this is in ~10s.
+Typed my real task "every 6 hours on weekends" into the plain-English box → it generated
+`0 */6 * * 0,6` and confirmed in English "On the hour, every 6 hours, only on Sunday and
+Saturday." Next 5 runs rendered correctly, plus a "Previous run" line (nice). Permalink
+encodes my expression AND tz settings (`&src=utc`) so I can paste it into a Discord thread
+without anyone signing up. Also checked mobile at 375px.
 
-## 1. Advocacy — 9/10. Yes, I'd recommend it, unprompted.
-I'd drop this in our Discord and team Notion the next time someone asks "wait, is it `0,6` or
-`6,0`?". My exact job worked on the first try: I typed "every 6 hours on weekends" into the
-plain-English box and got `0 */6 * * 0,6` plus "On the hour, every 6 hours, only on Sunday and
-Saturday" AND the next 5 run times in my local TZ. No login, no paywall, instant. That's the
-whole pitch and it delivers. Translate-to-Quartz gave me `0 0 */6 ? * SUN,SAT` — the correct
-6-field Quartz form with `?` and named days, which is exactly the dialect my scheduler wants and
-the thing I'd normally fat-finger. Not a 10 only because the inline "Translate to" result felt
-slightly buried below the fold and I almost missed there was a one-click "Use" to swap it in.
+## Friction (brutally honest)
+- Almost nothing blocking. The page is dense — SOURCE tz sits way up top near the cron
+  field, but DISPLAY tz lives down in the NEXT-5-RUNS block. On first pass I didn't realize
+  the two selectors were related until I scrolled and saw the "Runs in X · shown in Y" line
+  tie them together. A medium-tech user gets there; a less patient one might miss one of them.
+- The Local/UTC buttons LOOK like the only source options. I only discovered the box beside
+  them is a full type-anything IANA search by poking at it ("Berlin" → Europe/Berlin worked).
+  That's a great feature that's nearly invisible — looks like a read-only label, not an input.
+- Two separate "Local" and two "UTC" toggles on one screen is mildly confusing at a glance;
+  the section headers (THIS SCHEDULE RUNS IN / Show times in) do disambiguate, but only if
+  you read them.
+- Mobile (375px): clean, no horizontal scroll, both selectors tappable, indicator visible.
+  Would genuinely use this on my phone.
 
-## 2. Value clear in 30s? — YES.
-The H1 "Cron Explainer" + subhead "Paste a cron expression and see what it means in plain
-English... or describe a schedule in English and get the cron expression generated... Supports
-Unix, Quartz/Spring, and AWS EventBridge" told me everything. The pre-filled example and the
-clickable suggestion chips ("every 30 minutes", "9am every monday") made it obvious how to drive
-it. I knew what it did and that it covered my dialect before I touched anything.
-
-## 3. Brutal friction.
-Biggest: the **Translate-to output is easy to miss**. The Quartz string + "Use"/"Copy" buttons
-render inside the "IN PLAIN ENGLISH" card, lower on the page than where my eyes were (the cron
-field + dialect toggle at top). On mobile especially it's a scroll away. If translation is now a
-headline feature, it deserves to surface nearer the expression field or echo into it on click.
-Smaller nits: (a) the top "DIALECT Unix/Quartz/AWS" toggle and the "Translate to" buttons look
-like two different mechanisms — took me a beat to realize one sets the *input* dialect and the
-other converts the *result*; a one-word label clarifying that would help. (b) Nothing actually
-broke — copy/permalink worked, mobile (375px) was clean, TZ handling was correct.
-
-## Discoverability of dialect selector + Translate control
-**FOUND BOTH UNPROMPTED on cold load.** On first screenshot, before any hint, I could see the
-"DIALECT Unix | Quartz | AWS" toggle directly under the expression field, and the "Translate to
-Quartz | AWS" control inside the plain-English result card. Neither required being told it exists.
+## On the timezone feature specifically
+This is the killer feature for my exact use case and it WORKS. I set source = UTC (where my
+self-hosted bot runs) and display = my local LA — the first run flipped from "Sat 12:00 AM"
+to "Fri 05:00 PM," correctly showing the cross-day shift a weekend-cron causes. The combined
+"Runs in UTC · shown in America/Los_Angeles" badge appears only when they differ and collapses
+to plain "NEXT 5 RUNS — UTC" when they match — that's the right behavior and stops me from
+second-guessing. Setting "server runs in Berlin, show me in LA" worked too. This is the thing
+that would've saved me a headache configuring Uptime Kuma. Only reason it's a 9 not a 10: the
+source typeahead being disguised as a label, and the two selectors being far apart on screen.
 
 ```json
-{"tester": 4, "round": 1, "clarity": "Yes", "value": "Yes", "advocacy": 9, "topComplaints": ["Translate-to result (Quartz string + Use/Copy) sits below the fold and is easy to miss", "Input 'DIALECT' toggle vs output 'Translate to' read as two confusable mechanisms"], "priorConcernsAddressed": "n/a"}
+{"tester": 3, "round": 1, "clarity": "Yes", "value": "Yes", "advocacy": 9, "topComplaints": ["Source-tz typeahead looks like a read-only label, not an input — easy to miss it accepts any IANA zone", "SOURCE and DISPLAY selectors are far apart on the page; their relationship isn't obvious until you scroll and notice the 'Runs in X · shown in Y' line"], "priorConcernsAddressed": "n/a"}
 ```

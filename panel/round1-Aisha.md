@@ -1,48 +1,39 @@
-# Aisha — Product designer
+# Aisha — Round 1
+- advocacy: 8
+- clarity: Yes
+- value: Yes
 
-**Round 1 · cold load · desktop 1280px · trackpad**
+## What I did
+Opened cold on desktop. The H1 "Cron Explainer" + subhead ("Paste a cron expression and see
+what it means in plain English, plus its next 5 run times...") told me exactly what this is in
+under 10 seconds. Read the prefilled `*/15 9-17 * * MON-FRI` → "Every 15 minutes, between
+09:00 AM and 05:59 PM, Monday through Friday." Correct, plain, no jargon. Exercised BOTH tz
+selectors: set SOURCE ("This schedule runs in") to UTC while DISPLAY ("Show times in") stayed
+Local. The run times correctly shifted (UTC 9–17 → 02:00–03:00 LA), the divergence subtitle
+"Runs in UTC · shown in America/Los_Angeles" appeared, and the permalink picked up `?src=UTC`.
+Zero console errors throughout.
 
-## 1. Advocacy: 8/10 — yes, I'd recommend it
-I'd bring this up the next time a dev drops a cron string in a spec. To whom: engineers,
-PMs, and fellow designers who get handed schedule strings and don't want to keep a
-crontab.guru tab pinned. Why not a 9/10: a couple of empty-state polish misses (below)
-keep it from feeling fully airtight, and "judges craft hard" is my whole temperament — a
-9 means zero rough edges and I found two.
+## Friction (brutally honest)
+- The source-tz block has THREE stacked gray helper lines mashed together at identical weight:
+  "Servers usually run cron in UTC...", the dialect line "5-field Unix, 6/7-field Quartz...",
+  and "Runs entirely in your browser — nothing is sent." They belong to three different
+  controls but read as one undifferentiated gray paragraph. As a designer this is the one spot
+  that feels un-considered — the dialect helper should sit under DIALECT, not below the tz
+  pills. Needs spacing/grouping, not more copy.
+- Mild redundancy: "NEXT 5 RUNS — America/Los_Angeles" header AND a second line "Runs in UTC ·
+  shown in America/Los_Angeles" both name the display tz. Reads slightly doubled.
+- The tz dropdowns are custom comboboxes, not native selects — fine, but I'd want them keyboard-
+  reachable (couldn't verify focus ring in a screenshot).
 
-## 2. Value clear in 30s? YES.
-Title "Cron Explainer" + the subhead "Paste a cron expression and see what it means in
-plain English, plus its next 5 run times — or describe a schedule in English and get the
-cron generated for you. Supports Unix, Quartz/Spring, and AWS EventBridge." That sentence
-does the whole job. The prefilled `*/15 9-17 * * MON-FRI` → "Every 15 minutes, between
-09:00 AM and 05:59 PM, Monday through Friday" shows, doesn't tell. No ambiguity.
-
-## 3. Brutal friction
-**Biggest:** the EMPTY state is treated as an error. Clear the field and you get a pink
-error box "Enter a cron expression." plus a stale hint line reading "@ macro — standard
-Unix cron" (nonsense for a blank field — it's leftover parse state). An empty field on a
-calm tool should be a neutral resting prompt, not red. It's the one moment the craft
-slips and makes me feel I broke something I didn't. Easy fix, but it's exactly what I
-notice.
-
-Smaller: "Translate to" sits inside the result card on the right — slightly buried; I'd
-want it a hair more prominent given it's a headline new feature.
-
-**What's genuinely well-crafted:** pasting a 7-field Quartz string while on Unix
-AUTO-DETECTED and switched the dialect to Quartz — that's considered. Translate-to-Unix
-of `0 0 12 ? * WED` surfaced an HONEST warning "L, W, or # tokens can't be represented in
-Unix 5-field cron" instead of faking a translation — I trust a tool that admits limits.
-Invalid input gives a precise teaching error ("it has 4 fields. Expected at least 5…").
-English→cron round-trips correctly, "Copied!" feedback fires, Local/UTC toggle + previous
-run + relative times ("in 17 hours") are all there. There's even a documented GET API.
-Copy verified visually; clipboard read succeeded in test env. No console errors.
-
-## Discoverability of new controls
-I FOUND BOTH UNPROMPTED on cold load. The "DIALECT  Unix | Quartz | AWS" segmented control
-sits right under the input, labeled in caps; "Translate to  [Quartz] [AWS]" lives in the
-top-right of the result card. Neither felt bolted on — the segmented control matches the
-input/Local-UTC toggle styling, and translate offering only the OTHER two dialects (and
-swapping when you change input) shows it's wired into one coherent model, not stapled on.
+## On the timezone feature specifically
+This is CRAFTED, and that's why I'd recommend it. The two labels — "This schedule runs in" vs
+"Show times in" — are the clearest source-vs-display framing I've seen; no "TZ1/TZ2" nonsense.
+The "Runs in X · shown in Y" line is elegant precisely because it stays HIDDEN until the two
+diverge (no noise when they match) — that restraint is the considered touch I advocate for.
+Source-on-UTC nudge copy is genuinely useful for the server-cron case a dev would hand me.
+What holds it back from a 9: the gray helper pile-up under the source pills, and the doubled
+display-tz line. Tighten those two and this is a loud-recommend tool.
 
 ```json
-{"tester": 4, "round": 1, "clarity": "Yes", "value": "Yes", "advocacy": 8, "topComplaints": ["Empty field renders as a pink error with a stale '@ macro' hint instead of a neutral resting state", "'Translate to' control is slightly buried in the result card for a headline feature"], "priorConcernsAddressed": "n/a"}
+{"tester": 1, "round": 1, "clarity": "Yes", "value": "Yes", "advocacy": 8, "topComplaints": ["three stacked gray helper lines under source-tz pills read as one undifferentiated block; dialect helper is misplaced below tz controls", "display tz named twice (NEXT 5 RUNS header + 'shown in' line) reads redundant"], "priorConcernsAddressed": "n/a"}
 ```

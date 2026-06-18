@@ -251,7 +251,8 @@ test.describe("Round-3 (e): regression — core flows", () => {
     await page.locator("#cron-input").fill("0 9 * * *");
     await expect(page.locator("ol > li")).toHaveCount(5);
     const localFirst = await page.locator("ol > li").first().innerText();
-    await page.getByRole("button", { name: /UTC/ }).click();
+    // Use stable testid — page now has two UTC buttons (source + display)
+    await page.getByTestId("display-tz-utc").click();
     await expect(page.locator("ol > li")).toHaveCount(5);
     const utcFirst = await page.locator("ol > li").first().innerText();
     // At minimum both have years; may differ unless browser is in UTC zone

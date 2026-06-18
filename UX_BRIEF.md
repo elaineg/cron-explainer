@@ -120,3 +120,66 @@ Compact, tool-like spacing — dense but not cramped.
 - E: On parse error, clear/dim prior result + disable copy — no false success; friendly copy.
 - F: Always-visible copyable permalink row when valid; accept `?expr=`/`?cron=` aliases.
 - G: (If cheap) one "Previous run" line in the active zone.
+
+## TIMEZONE-AWARE NEXT-RUN (2026-06-18 add-feature)
+
+Cron has TWO timezone concepts — the zone the schedule RUNS in vs. the zone the results are
+SHOWN in. Conflating them is the #1 legibility risk here. The whole job is making "which
+selector does what" obvious to a cold engineer in 5 seconds. Visual language unchanged — two
+controls + one relationship line, reusing existing idioms (segmented chips, micro-labels).
+
+### Two selectors, never conflated — exact micro-labels (do NOT rename)
+- **SOURCE / execution tz** (NEW): micro-label **"This schedule runs in"** + the tz value.
+  This is about INTERPRETATION — it changes WHEN the cron fires (`0 9 * * *` = 9:00 in this
+  zone). Default = browser-local (binding back-compat: today's instants stay byte-identical;
+  never default to UTC). Controls: a **Local · UTC** segmented chip pair (reuse the existing
+  Local|UTC toggle styling) + an "Other…" affordance opening the searchable IANA combobox.
+  Directly under it, one quiet micro-caption (zinc-400, no amber alarm):
+  *"Servers usually run cron in UTC — switch the source to UTC if this runs on a server."*
+- **DISPLAY tz** (EXTENDS today's toggle): micro-label **"Show times in"** + the tz value.
+  This replaces the current `tzLabel`-only header control in the Next-5 panel. Keep the
+  existing Local|UTC segmented toggle EXACTLY where it sits (panel header, flush-right), and
+  add the same "Other…" → searchable IANA combobox. Default = Local (unchanged).
+
+### Placement (interpretation lives near input; display lives near results)
+- SOURCE selector sits **just above / on the same block as the cron input** — co-located with
+  the thing being interpreted, NOT in the results panel. Pair it with the dialect badge region
+  (both are "how we read this string" controls), but keep its label distinct so it doesn't
+  read as a dialect option.
+- DISPLAY selector stays in the **Next-5 panel header** (current position), extended only.
+- This spatial split — "runs in" up by the input, "show in" down by the times — is itself the
+  primary teaching device. Don't co-locate them in one cluster.
+
+### The relationship line (reads like a sentence)
+- Render a single muted line in the Next-5 panel header area, just under "Next 5 runs":
+  **"Runs in <SOURCE> · shown in <DISPLAY>"** (e.g. *"Runs in UTC · shown in America/New_York"*).
+  Use the existing mono/zinc microcopy register, the `·` middot as separator.
+- ANTI-CONFUSION (binding): when **source == display** (the default, all-Local case), do NOT
+  show the cross-tz line — it would read like a broken "runs in X · shown in X" tautology.
+  Default/collapsed state: show only the normal "Next 5 runs — <zone>" label and the source
+  caption. The "Runs in X · shown in Y" line APPEARS only when source ≠ display, where it earns
+  its keep by explaining the wall-clock shift. No nag, no badge, when they match.
+
+### Searchable IANA picker (both selectors)
+- The arbitrary-zone picker is a **typeahead combobox** over `Intl.supportedValuesOf('timeZone')`
+  — type "tokyo", "new", "berlin" to filter — NEVER a raw ~400-item `<select>`. Local + UTC
+  pinned at the top. Each picker has its own clear associated label (the micro-label above it).
+- A11y: combobox is fully keyboard-operable (arrow/enter/escape, focus-visible ring, listbox
+  role + `aria-label` tying it to its micro-label). The Local·UTC chips remain buttons.
+
+### Privacy reassurance (calm, not a trust-bomb)
+- One small muted line (zinc-400, same register as the source caption), placed once near the
+  selectors or footer: **"Runs entirely in your browser — nothing is sent."** No lock icon
+  banner, no colored box — a quiet aside, not a security badge.
+
+### Mobile (375px) — discoverable on first paint (added-feature-buried lesson)
+- Both selectors + the relationship line MUST render above the fold area they belong to at
+  375px, no horizontal scroll, no overlap, visible on first paint.
+- SOURCE block stacks VERTICALLY: micro-label on its own line, then the Local·UTC chips +
+  "Other…" wrapping to the next line, then the caption. It must not push the cron input or
+  first result below the fold (same constraint as the dialect controls).
+- DISPLAY: in the Next-5 header, if the label + toggle + "Other…" don't fit one row at 375px,
+  the toggle wraps to a second line UNDER the "Next 5 runs — <zone>" label (label-over-control
+  stack), never side-scrolls.
+- The combobox dropdown opens as a full-width list under its trigger at 375px (not a clipped
+  popover), keyboard- and tap-operable.

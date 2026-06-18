@@ -11,6 +11,7 @@ import {
   Dialect,
 } from "@/lib/cron";
 import { englishToCron, EnglishError, EXAMPLE_PHRASES } from "@/lib/english";
+import { IanaPicker } from "./iana-picker";
 
 const EXAMPLE = "*/15 9-17 * * MON-FRI";
 
@@ -89,10 +90,29 @@ const DIALECT_ALL: Dialect[] = ["unix", "quartz", "aws"];
 
 const noopSubscribe = () => () => {};
 
+/**
+ * Resolve a tz selector value ("local" | "UTC" | IANA) to an actual IANA string.
+ * When value is "local", return the browser's local timezone.
+ */
+function resolveIana(value: string, localTz: string): string {
+  if (value === "local") return localTz;
+  return value; // "UTC" or any IANA string
+}
+
+/**
+ * Return a human-readable short label for the tz selector value.
+ */
+function tzShortLabel(value: string, localTz: string): string {
+  if (value === "local") return localTz;
+  return value;
+}
+
 export default function Explainer({
   initialExpression,
   serverResult,
   serverError,
+  initialSrcTz,
+  initialDisplayTz,
 }: {
   /** Pre-fill the input (permalink page); defaults to the example. */
   initialExpression?: string;
@@ -100,11 +120,28 @@ export default function Explainer({
   serverResult?: ServerExplanation | null;
   /** Server-rendered parse error for invalid permalink expressions. */
   serverError?: string | null;
+  /**
+   * Initial SOURCE timezone from ?src= param.
+   * "local" (default), "UTC", or an IANA string.
+   * BACK-COMPAT: default = "local" (browser local) so existing links render byte-identical.
+   */
+  initialSrcTz?: string;
+  /**
+   * Initial DISPLAY timezone from ?tz= param.
+   * "local" (default), "UTC", or an IANA string.
+   * Legacy: "UTC" from ?tz=UTC continues to mean display-in-UTC.
+   */
+  initialDisplayTz?: string;
 }) {
   const [input, setInput] = useState(initialExpression ?? EXAMPLE);
   const [english, setEnglish] = useState("");
-  // "local" = browser timezone; "UTC" = UTC
-  const [tzMode, setTzMode] = useState<"local" | "UTC">("local");
+
+  // SOURCE timezone: "local" | "UTC" | IANA string. Default = "local" (browser tz).
+  const [srcTz, setSrcTz] = useState<string>(initialSrcTz ?? "local");
+
+  // DISPLAY timezone: "local" | "UTC" | IANA string. Default = "local".
+  const [displayTz, setDisplayTz] = useState<string>(initialDisplayTz ?? "local");
+
   // null = auto-detect; a Dialect = user override
   const [dialectOverride, setDialectOverride] = useState<Dialect | null>(null);
 
@@ -187,19 +224,19 @@ export default function Explainer({
   // The effective dialect: user override if set, else auto-detect
   const effectiveDialect = dialectOverride ?? autoDetectedDialect.dialect;
 
-  const { result, error, timezone, tzLabel } = useMemo<{
+  const { result, error, resolvedDisplayTz, displayTzLabel } = useMemo<{
     result: Result | null;
     error: string | null;
-    timezone: string;
-    tzLabel: string;
+    resolvedDisplayTz: string;
+    displayTzLabel: string;
   }>(() => {
     if (!hydrated) {
       if (serverError) {
         return {
           result: null,
           error: serverError,
-          timezone: "UTC",
-          tzLabel: "UTC",
+          resolvedDisplayTz: "UTC",
+          displayTzLabel: "UTC",
         };
       }
       if (serverResult) {
@@ -216,19 +253,21 @@ export default function Explainer({
             detectedReason: "",
           },
           error: null,
-          timezone: "UTC",
-          tzLabel: "UTC",
+          resolvedDisplayTz: "UTC",
+          displayTzLabel: "UTC",
         };
       }
-      return { result: null, error: null, timezone: "UTC", tzLabel: "UTC" };
+      return { result: null, error: null, resolvedDisplayTz: "UTC", displayTzLabel: "UTC" };
     }
 
     const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    // Always EVALUATE the cron in the browser's local timezone so the computed
-    // instants are consistent. The tzMode only controls how we DISPLAY those instants.
-    const evalTz = localTz;
-    const displayTz = tzMode === "local" ? localTz : "UTC";
-    const tzLabel = tzMode === "local" ? localTz : "UTC";
+
+    // SOURCE: the tz the cron expression is EVALUATED in
+    const evalTz = resolveIana(srcTz, localTz);
+
+    // DISPLAY: the tz results are SHOWN in
+    const dTz = resolveIana(displayTz, localTz);
+    const dLabel = tzShortLabel(displayTz, localTz);
 
     try {
       const now = new Date();
@@ -246,7 +285,7 @@ export default function Explainer({
       if (prev) {
         prevRun = {
           iso: prev.toISOString(),
-          absolute: formatAbsolute(prev, displayTz),
+          absolute: formatAbsolute(prev, dTz),
           relative: formatRelative(prev, now),
         };
       }
@@ -259,7 +298,7 @@ export default function Explainer({
         seenRelative.add(rel);
         return {
           iso: d.toISOString(),
-          absolute: formatAbsolute(d, displayTz),
+          absolute: formatAbsolute(d, dTz),
           relative,
         };
       });
@@ -274,8 +313,8 @@ export default function Explainer({
           yearNote,
         },
         error: null,
-        timezone: displayTz,
-        tzLabel,
+        resolvedDisplayTz: dTz,
+        displayTzLabel: dLabel,
       };
     } catch (e) {
       return {
@@ -284,11 +323,11 @@ export default function Explainer({
           e instanceof CronError
             ? e.message
             : "That doesn't look like a valid cron expression — check the number of fields and value ranges.",
-        timezone: displayTz,
-        tzLabel,
+        resolvedDisplayTz: dTz,
+        displayTzLabel: dLabel,
       };
     }
-  }, [input, hydrated, serverResult, serverError, tzMode, effectiveDialect, autoDetectedDialect.reason]);
+  }, [input, hydrated, serverResult, serverError, srcTz, displayTz, effectiveDialect, autoDetectedDialect.reason]);
 
   // Translate result (computed when translateTarget is set and expression is valid)
   const translateResult = useMemo(() => {
@@ -299,8 +338,18 @@ export default function Explainer({
   const trimmedInput = input.trim();
   const permalinkPath = `/e/${encodeURIComponent(trimmedInput)}`;
   const origin = hydrated ? window.location.origin : "";
-  const tzParam = tzMode === "UTC" ? "?tz=UTC" : "";
-  const permalinkUrl = `${origin}${permalinkPath}${tzParam}`;
+
+  // Build permalink query params:
+  // ?tz= for display (omit when local); ?src= for source (omit when local)
+  const permalinkParams = useMemo(() => {
+    const params = new URLSearchParams();
+    if (displayTz !== "local") params.set("tz", displayTz);
+    if (srcTz !== "local") params.set("src", srcTz);
+    const qs = params.toString();
+    return qs ? `?${qs}` : "";
+  }, [displayTz, srcTz]);
+
+  const permalinkUrl = `${origin}${permalinkPath}${permalinkParams}`;
 
   // When English field is non-empty and has a parse error, block result region
   const englishBlocksResult = !!(english.trim() && englishResult.error);
@@ -309,6 +358,19 @@ export default function Explainer({
 
   // The two OTHER dialects to show as translate targets
   const translateTargets = DIALECT_ALL.filter((d) => d !== effectiveDialect);
+
+  // Relationship line: show only when source != display (resolved IANA values differ)
+  const localTzForRelationship = hydrated
+    ? Intl.DateTimeFormat().resolvedOptions().timeZone
+    : "";
+  const resolvedSrcTz = hydrated ? resolveIana(srcTz, localTzForRelationship) : "";
+  const resolvedDTzForRelationship = hydrated ? resolveIana(displayTz, localTzForRelationship) : "";
+  const showRelationshipLine =
+    hydrated && resolvedSrcTz !== resolvedDTzForRelationship;
+
+  const srcTzLabel = hydrated
+    ? tzShortLabel(srcTz, localTzForRelationship)
+    : srcTz;
 
   return (
     <div className="flex flex-1 flex-col items-center bg-zinc-50 px-4 py-12 font-sans dark:bg-zinc-950 sm:py-20">
@@ -403,11 +465,123 @@ export default function Explainer({
               ? `Manually set to ${DIALECT_LABELS[dialectOverride]}`
               : autoDetectedDialect.reason}
           </p>
+          {/* Fix B: dialect format help moved here, under the dialect control */}
+          <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">
+            5-field Unix, 6/7-field Quartz/Spring, 6-field AWS EventBridge,{" "}
+            and @hourly / @daily / @weekly / @monthly / @yearly.
+          </p>
         </div>
 
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
-          5-field Unix, 6/7-field Quartz/Spring, 6-field AWS EventBridge,{" "}
-          and @hourly / @daily / @weekly / @monthly / @yearly.
+        {/* Fix A: PAIRED timezone row — source + display together so the relationship is obvious */}
+        <div className="mt-4 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-3 dark:border-zinc-800 dark:bg-zinc-900" data-testid="source-tz-block">
+          <div className="flex flex-wrap gap-y-3 gap-x-6 items-start">
+            {/* SOURCE half */}
+            <div className="min-w-0 flex-1" style={{minWidth: "min(100%, 16rem)"}}>
+              <span
+                id="source-tz-label"
+                className="block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+              >
+                Runs in
+              </span>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                <div className="flex overflow-hidden rounded-md border border-zinc-300 text-xs dark:border-zinc-700 shrink-0">
+                  <button
+                    type="button"
+                    data-testid="source-tz-local"
+                    onClick={() => setSrcTz("local")}
+                    aria-pressed={srcTz === "local"}
+                    className={`px-2.5 py-1 font-medium transition-colors ${
+                      srcTz === "local"
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                    }`}
+                  >
+                    Local
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="source-tz-utc"
+                    onClick={() => setSrcTz("UTC")}
+                    aria-pressed={srcTz === "UTC"}
+                    className={`border-l border-zinc-300 px-2.5 py-1 font-medium transition-colors dark:border-zinc-700 ${
+                      srcTz === "UTC"
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                    }`}
+                  >
+                    UTC
+                  </button>
+                </div>
+                <div className="min-w-0 flex-1" style={{minWidth: "8rem"}}>
+                  <IanaPicker
+                    value={srcTz}
+                    onChange={(v) => setSrcTz(v)}
+                    labelId="source-tz-label"
+                    testId="source-tz-select"
+                    placeholder="Other…"
+                  />
+                </div>
+              </div>
+              <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+                Servers usually run cron in UTC — switch the source to UTC if
+                this runs on a server.
+              </p>
+            </div>
+
+            {/* DISPLAY half */}
+            <div className="min-w-0 flex-1" style={{minWidth: "min(100%, 16rem)"}}>
+              <span
+                id="display-tz-label"
+                className="block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+              >
+                Show times in
+              </span>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                <div className="flex overflow-hidden rounded-md border border-zinc-300 text-xs dark:border-zinc-700 shrink-0">
+                  <button
+                    type="button"
+                    data-testid="display-tz-local"
+                    onClick={() => setDisplayTz("local")}
+                    aria-pressed={displayTz === "local"}
+                    className={`px-2.5 py-1 font-medium transition-colors ${
+                      displayTz === "local"
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                    }`}
+                  >
+                    Local
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="display-tz-utc"
+                    onClick={() => setDisplayTz("UTC")}
+                    aria-pressed={displayTz === "UTC"}
+                    className={`border-l border-zinc-300 px-2.5 py-1 font-medium transition-colors dark:border-zinc-700 ${
+                      displayTz === "UTC"
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                    }`}
+                  >
+                    UTC
+                  </button>
+                </div>
+                <div className="min-w-0 flex-1" style={{minWidth: "8rem"}}>
+                  <IanaPicker
+                    value={displayTz}
+                    onChange={(v) => setDisplayTz(v)}
+                    labelId="display-tz-label"
+                    testId="display-tz-select"
+                    placeholder="Other…"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Fix B: privacy line separated with its own breathing room */}
+        <p className="mt-3 text-xs text-zinc-400 dark:text-zinc-500">
+          Runs entirely in your browser — nothing is sent.
         </p>
 
         {/* English-to-cron input */}
@@ -590,36 +764,23 @@ export default function Explainer({
             </section>
 
             <section className="mt-4 rounded-lg border border-zinc-200 bg-white px-5 py-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-              {/* C: Timezone selector in section header */}
-              <div className="flex items-center justify-between gap-2">
+              {/* Results header: tz label for at-a-glance context; relationship line when source ≠ display */}
+              <div>
                 <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                   Next 5 runs &mdash;{" "}
-                  <span className="font-normal normal-case">{tzLabel || "..."}</span>
+                  <span className="font-normal normal-case">
+                    {displayTzLabel || "..."}
+                  </span>
                 </h2>
-                <div className="flex overflow-hidden rounded-md border border-zinc-300 text-xs dark:border-zinc-700">
-                  <button
-                    type="button"
-                    onClick={() => setTzMode("local")}
-                    className={`px-2.5 py-1 font-medium transition-colors ${
-                      tzMode === "local"
-                        ? "bg-blue-600 text-white"
-                        : "bg-white text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
-                    }`}
+                {/* Relationship line: only when source ≠ display */}
+                {showRelationshipLine && (
+                  <p
+                    data-testid="tz-relationship"
+                    className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500"
                   >
-                    Local
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTzMode("UTC")}
-                    className={`border-l border-zinc-300 px-2.5 py-1 font-medium transition-colors dark:border-zinc-700 ${
-                      tzMode === "UTC"
-                        ? "bg-blue-600 text-white"
-                        : "bg-white text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
-                    }`}
-                  >
-                    UTC
-                  </button>
-                </div>
+                    Runs in {srcTzLabel} · shown in {displayTzLabel}
+                  </p>
+                )}
               </div>
 
               {/* G: Previous run, muted, for incident triage */}
@@ -665,7 +826,7 @@ export default function Explainer({
               </h2>
               <div className="mt-2 flex items-center gap-3">
                 <a
-                  href={permalinkPath + tzParam}
+                  href={permalinkPath + permalinkParams}
                   data-testid="permalink"
                   className="min-w-0 flex-1 truncate font-mono text-sm text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
                 >
@@ -708,7 +869,13 @@ export default function Explainer({
             </a>{" "}
             — returns JSON with the description and next 5 run times (UTC ISO
             8601). Auto-detects Unix, Quartz, and AWS dialects. Invalid or absent{" "}
-            <code className="font-mono text-xs">tz</code> returns 400.
+            <code className="font-mono text-xs">tz</code> returns 400.{" "}
+            <span className="text-zinc-400 dark:text-zinc-500">
+              Note: the API <code className="font-mono text-xs">?tz=</code> param sets the
+              execution/source timezone (default UTC); in the UI{" "}
+              <code className="font-mono text-xs">?tz=</code> sets the display timezone and{" "}
+              <code className="font-mono text-xs">?src=</code> sets the source timezone.
+            </span>
           </p>
         </footer>
       </main>

@@ -1,49 +1,42 @@
-# Wen — Marketing data analyst
+# Wen — Round 1
+- advocacy: 8
+- clarity: Yes
+- value: Yes
 
-## 1. ADVOCACY: 5/10
-I'd recommend the *engine* but not for the one job I came for. The API and the plain-English
-parsing are genuinely good — but the UTC/Local toggle, the single control my whole reason for
-visiting depends on, is broken in the UI. I can't in good conscience tell a teammate "use this
-to confirm your dbt job fires at 6am local not UTC" when its timezone toggle lies. I'd send the
-API (`/api/explain?...&tz=`) to an engineer; I would NOT send the web UI to a non-engineer
-stakeholder for the timezone check. Engine 8, the UI's headline trust-feature drags it to 5.
+## What I did
+Cold open: "Cron Explainer" + the one-line description ("see what it means in plain English,
+plus its next 5 run times") told me what this is in <10s. Pasted my real job `0 6 * * *`.
+Got "At 06:00 AM" + next 5 runs labeled "NEXT 5 RUNS — America/Los_Angeles". Then the core
+test: set SOURCE ("THIS SCHEDULE RUNS IN") = UTC, left DISPLAY ("Show times in") = Local.
+Cross-checked the math two ways: the /api/explain?tz=UTC endpoint returns raw `06:00:00.000Z`
+ISO instants, and my own zoneinfo conversion of 6am UTC → LA = 11:00 PM prev day. The UI
+showed exactly 11:00 PM. Numbers are honest — no invisible transformation, which is the
+thing I distrust most.
 
-## 2. VALUE CLEAR within 30s? YES.
-Title "Cron Explainer" + subhead "Paste a cron expression and see what it means in plain English,
-plus its next 5 run times... Supports Unix, Quartz/Spring, and AWS EventBridge." That's exactly
-my world. The sample `*/15 9-17 * * MON-FRI` pre-filled and the live "Every 15 minutes..."
-explanation told me everything instantly. Today I do this in crontab.guru + manual UTC mental
-math; this is faster — and it covers Quartz/AWS, which crontab.guru does not.
+## Friction (brutally honest)
+- The two selectors are physically far apart: SOURCE sits up by the input, DISPLAY is buried
+  down in the NEXT 5 RUNS block. On first pass I only saw ONE timezone control and almost
+  concluded the "answer 6am-in-my-tz" feature was missing. I had to scroll to find the second
+  one. They should be visually paired, or at least the source label should hint a display
+  control exists below.
+- API/UI param naming is INVERTED and that's a real footgun: the docs literally say "the API
+  ?tz= sets the execution/source timezone (default UTC); in the UI ?tz= sets the display
+  timezone and ?src= sets the source timezone." If I script a dbt-schedule audit against the
+  API and then eyeball it in the UI, the same query string means different things. As a data
+  person I'd get burned by this. Pick one meaning for ?tz=.
+- "At 06:00 AM" stays the headline even when source=UTC — technically correct (it's the
+  schedule's own definition) but for half a second it fights the 11:00 PM list below. A
+  micro-label like "(06:00 in UTC)" on the plain-English line would kill the ambiguity.
+- No CSV/bulk export. I audit many DAGs at once; I'd want to paste a column of expressions
+  or get the next-runs as CSV. One-at-a-time is fine for spot checks, not for a sweep.
 
-## 3. BRUTAL FRICTION
-**Biggest (disqualifying for my use case): the Local/UTC toggle does NOT convert the run-time
-clock.** For `0 6 * * *` with my machine on America/New_York (EDT, UTC-4), flipping to "UTC"
-changes the header to "NEXT 5 RUNS — UTC" and the relative "14 hours ago → 18 hours ago", but
-every row still reads **06:00 AM**. It should read **10:00 AM** in UTC. I proved the backend is
-right: `GET /api/explain?expr=0 6 * * *&tz=America/New_York` returns `2026-06-18T10:00:00.000Z`
-(= 6am NY = 10am UTC). So the math is correct; the UI toggle just relabels without reformatting.
-This is the textbook "tool transforms time invisibly" trap I distrust, and it sits on the exact
-feature I opened the app to use. Fix: render the UTC column as the actual UTC wall-clock.
-
-Other friction:
-- **No manual timezone picker** (zero `<select>` on the page). It only uses my browser's TZ. I
-  can't verify "does this fire at 6am for the Tokyo stakeholder" without spoofing my OS clock.
-  The API takes `&tz=<IANA>`; the UI should expose that as a dropdown.
-- **Two buttons both labelled "AWS"** doing different things — the DIALECT selector "AWS"
-  (re-interprets in place) vs the "Translate to AWS" (emits a new expr). Mildly confusing.
-
-What's GOOD: the Translate result is shown as a separate line `AWS: 0 6 ? * MON-FRI *` with
-Use/Copy — it does NOT silently overwrite my input. That non-destructive behavior is exactly
-what a data-hygiene person wants. English→cron (`every weekday at 6am → 0 6 * * 1-5`) and the
-documented API (400 on bad tz) both passed.
-
-## DISCOVERABILITY (asked explicitly)
-I found BOTH UNPROMPTED on cold load, above the fold:
-- DIALECT selector: pill row "Unix | Quartz | AWS" directly under the expression box. Obvious.
-- Translate control: "Translate to: Quartz | AWS" in the top-right of the IN PLAIN ENGLISH card.
-  Clear once I had an expression. The target list correctly excludes the current dialect.
-Neither needed hunting. Discoverable: yes.
-
-```json
-{"tester": 0, "round": 1, "clarity": "Yes", "value": "Yes", "advocacy": 5, "topComplaints": ["Local/UTC toggle does not convert run-time clock — UTC view still shows 06:00 instead of 10:00 for a NY-interpreted 0 6 * * *; the exact feature I came to verify", "No manual timezone picker — UI is locked to browser TZ; can't check a job in a stakeholder's timezone (API has &tz= but UI doesn't expose it)"], "priorConcernsAddressed": "n/a"}
-```
+## On the timezone feature specifically
+This nailed my exact worry. With SOURCE=UTC / DISPLAY=Local the tool showed the disclosure
+line "Runs in UTC · shown in America/Los_Angeles" (only appears when they differ — good
+restraint), and converted the 6am-UTC job to 11:00 PM my time, matching my independent
+zoneinfo check. The permalink even persisted `?src=UTC`, so I can paste a stakeholder the
+exact "no, it fires at 11pm your time" proof. Source-vs-display is the RIGHT mental model and
+once both controls are in view it's clear. The only legibility risk is discoverability of the
+second selector (see friction). Privacy line "Runs entirely in your browser — nothing is sent"
+plus the raw-UTC ISO API earns my data trust. Not a 9 only because of the split-selector
+discoverability and the inverted API/UI ?tz= naming — both fixable.
