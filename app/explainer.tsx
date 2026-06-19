@@ -12,6 +12,9 @@ import {
 } from "@/lib/cron";
 import { englishToCron, EnglishError, EXAMPLE_PHRASES } from "@/lib/english";
 import { IanaPicker } from "./iana-picker";
+import CrontabFileMode, { SAMPLE_CRONTAB } from "./crontab-file-mode";
+
+type AppMode = "single" | "file";
 
 const EXAMPLE = "*/15 9-17 * * MON-FRI";
 
@@ -61,23 +64,22 @@ function formatRelative(d: Date, now: Date): string {
   return rtf.format(Math.round(diffSec / (86400 * 365)), "year");
 }
 
-/** Returns [copied state, copy function]. */
-function useCopyButton(): [boolean, (text: string) => void] {
-  const [copied, setCopied] = useState(false);
+/** Returns [state, copy function]. state: "idle" | "copied" | "blocked". */
+function useCopyButton(): ["idle" | "copied" | "blocked", (text: string) => void] {
+  const [state, setState] = useState<"idle" | "copied" | "blocked">("idle");
   function copy(text: string) {
     navigator.clipboard
       .writeText(text)
       .then(() => {
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 1500);
+        setState("copied");
+        window.setTimeout(() => setState("idle"), 1500);
       })
       .catch(() => {
-        // Optimistic flip even on clipboard deny
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 1500);
+        setState("blocked");
+        window.setTimeout(() => setState("idle"), 2000);
       });
   }
-  return [copied, copy];
+  return [state, copy];
 }
 
 const DIALECT_LABELS: Record<Dialect, string> = {
@@ -133,6 +135,9 @@ export default function Explainer({
    */
   initialDisplayTz?: string;
 }) {
+  const [mode, setMode] = useState<AppMode>("single");
+  const [crontabText, setCrontabText] = useState("");
+
   const [input, setInput] = useState(initialExpression ?? EXAMPLE);
   const [english, setEnglish] = useState("");
 
@@ -148,6 +153,7 @@ export default function Explainer({
   const [copiedCron, copyCron] = useCopyButton();
   const [copiedLink, copyLink] = useCopyButton();
   const [copiedTranslated, copyTranslated] = useCopyButton();
+  const [copiedDesc, copyDesc] = useCopyButton();
 
   // Track translate target
   const [translateTarget, setTranslateTarget] = useState<Dialect | null>(null);
@@ -385,10 +391,196 @@ export default function Explainer({
           AWS EventBridge.
         </p>
 
+        {/* Mode toggle — ALWAYS visible above the input */}
+        <div className="mt-8 flex items-center" data-testid="mode-toggle">
+          <div className="flex overflow-hidden border border-zinc-300 dark:border-zinc-700">
+            <button
+              type="button"
+              data-testid="mode-single"
+              aria-pressed={mode === "single"}
+              onClick={() => setMode("single")}
+              className={`px-4 py-1.5 text-xs font-bold uppercase tracking-widest transition-colors ${
+                mode === "single"
+                  ? "bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900"
+                  : "bg-white text-zinc-500 hover:bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              }`}
+            >
+              Single Expression
+            </button>
+            <button
+              type="button"
+              data-testid="mode-file"
+              aria-pressed={mode === "file"}
+              onClick={() => setMode("file")}
+              className={`border-l border-zinc-300 px-4 py-1.5 text-xs font-bold uppercase tracking-widest transition-colors dark:border-zinc-700 ${
+                mode === "file"
+                  ? "bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900"
+                  : "bg-white text-zinc-500 hover:bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              }`}
+            >
+              Crontab File
+            </button>
+          </div>
+        </div>
+
+        {/* FILE MODE: textarea + CrontabFileMode results */}
+        {mode === "file" && (
+          <>
+            <div className="mt-4">
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="crontab-textarea"
+                  className="block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+                >
+                  Paste your crontab
+                </label>
+                <button
+                  type="button"
+                  data-testid="load-sample-btn"
+                  onClick={() => setCrontabText(SAMPLE_CRONTAB)}
+                  className="text-xs font-medium text-zinc-500 underline-offset-2 hover:text-zinc-800 hover:underline dark:text-zinc-400 dark:hover:text-zinc-200"
+                >
+                  Load a sample crontab
+                </button>
+              </div>
+              <textarea
+                id="crontab-textarea"
+                data-testid="crontab-textarea"
+                value={crontabText}
+                onChange={(e) => setCrontabText(e.target.value)}
+                rows={10}
+                spellCheck={false}
+                autoComplete="off"
+                placeholder={"# Paste your crontab here...\n0 2 * * * /usr/local/bin/backup.sh"}
+                className="mt-2 w-full resize-y border border-zinc-300 bg-white px-4 py-3 font-mono text-sm text-zinc-900 outline-none transition-colors focus:ring-2 focus:ring-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              />
+            </div>
+
+            {/* Timezone block applies in file mode too — shown prominently so users notice it */}
+            <div className="mt-4 border border-zinc-300 bg-zinc-50 px-3 py-3 dark:border-zinc-700 dark:bg-zinc-900" data-testid="source-tz-block">
+              <div className="flex flex-wrap gap-y-3 gap-x-6 items-start">
+                {/* SOURCE half */}
+                <div className="min-w-0 flex-1" style={{minWidth: "min(100%, 16rem)"}}>
+                  <span
+                    id="source-tz-label-file"
+                    className="block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+                  >
+                    Runs in
+                  </span>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    <div className="flex overflow-hidden border border-zinc-300 text-xs dark:border-zinc-700 shrink-0">
+                      <button
+                        type="button"
+                        data-testid="source-tz-local"
+                        onClick={() => setSrcTz("local")}
+                        aria-pressed={srcTz === "local"}
+                        className={`px-2.5 py-1 font-medium transition-colors ${
+                          srcTz === "local"
+                            ? "bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900"
+                            : "bg-white text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                        }`}
+                      >
+                        Local
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="source-tz-utc"
+                        onClick={() => setSrcTz("UTC")}
+                        aria-pressed={srcTz === "UTC"}
+                        className={`border-l border-zinc-300 px-2.5 py-1 font-medium transition-colors dark:border-zinc-700 ${
+                          srcTz === "UTC"
+                            ? "bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900"
+                            : "bg-white text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                        }`}
+                      >
+                        UTC
+                      </button>
+                    </div>
+                    <div className="min-w-0 flex-1" style={{minWidth: "8rem"}}>
+                      <IanaPicker
+                        value={srcTz}
+                        onChange={(v) => setSrcTz(v)}
+                        labelId="source-tz-label-file"
+                        testId="source-tz-select"
+                        placeholder="Other…"
+                      />
+                    </div>
+                  </div>
+                  <p
+                    data-testid="file-mode-utc-hint"
+                    className="mt-1 text-xs font-medium text-zinc-500 dark:text-zinc-400"
+                  >
+                    Crontabs on a server usually run in UTC — set the source timezone to match where these jobs run.
+                  </p>
+                </div>
+                {/* DISPLAY half */}
+                <div className="min-w-0 flex-1" style={{minWidth: "min(100%, 16rem)"}}>
+                  <span
+                    id="display-tz-label-file"
+                    className="block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+                  >
+                    Show times in
+                  </span>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    <div className="flex overflow-hidden border border-zinc-300 text-xs dark:border-zinc-700 shrink-0">
+                      <button
+                        type="button"
+                        data-testid="display-tz-local"
+                        onClick={() => setDisplayTz("local")}
+                        aria-pressed={displayTz === "local"}
+                        className={`px-2.5 py-1 font-medium transition-colors ${
+                          displayTz === "local"
+                            ? "bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900"
+                            : "bg-white text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                        }`}
+                      >
+                        Local
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="display-tz-utc"
+                        onClick={() => setDisplayTz("UTC")}
+                        aria-pressed={displayTz === "UTC"}
+                        className={`border-l border-zinc-300 px-2.5 py-1 font-medium transition-colors dark:border-zinc-700 ${
+                          displayTz === "UTC"
+                            ? "bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900"
+                            : "bg-white text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                        }`}
+                      >
+                        UTC
+                      </button>
+                    </div>
+                    <div className="min-w-0 flex-1" style={{minWidth: "8rem"}}>
+                      <IanaPicker
+                        value={displayTz}
+                        onChange={(v) => setDisplayTz(v)}
+                        labelId="display-tz-label-file"
+                        testId="display-tz-select"
+                        placeholder="Other…"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <CrontabFileMode
+              text={crontabText}
+              evalTz={resolvedSrcTz || "UTC"}
+              displayTz={resolvedDTzForRelationship || "UTC"}
+              hydrated={hydrated}
+            />
+          </>
+        )}
+
+        {/* SINGLE EXPRESSION MODE */}
+        {mode === "single" && (
+        <>
+
         {/* Cron expression input + B: copy button */}
         <label
           htmlFor="cron-input"
-          className="mt-8 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+          className="mt-4 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
         >
           Cron expression
         </label>
@@ -413,15 +605,17 @@ export default function Explainer({
               type="button"
               data-testid="copy-cron-btn"
               onClick={() => copyCron(trimmedInput)}
-              title={copiedCron ? "Copied!" : "Copy cron expression"}
-              aria-label={copiedCron ? "Copied!" : "Copy cron expression"}
+              title={copiedCron === "copied" ? "Copied!" : copiedCron === "blocked" ? "Copy blocked" : "Copy cron expression"}
+              aria-label={copiedCron === "copied" ? "Copied!" : copiedCron === "blocked" ? "Copy blocked" : "Copy cron expression"}
               className={`absolute right-2 top-1/2 -translate-y-1/2 rounded-md border px-2 py-1.5 text-xs font-semibold shadow-sm transition-all ${
-                copiedCron
+                copiedCron === "copied"
                   ? "border-green-500 bg-green-100 text-green-800 ring-1 ring-green-400 dark:border-green-500 dark:bg-green-900 dark:text-green-200 dark:ring-green-500"
+                  : copiedCron === "blocked"
+                  ? "border-red-400 bg-red-50 text-red-700 dark:border-red-600 dark:bg-red-950 dark:text-red-300"
                   : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
               }`}
             >
-              {copiedCron ? "✓ Copied!" : "Copy"}
+              {copiedCron === "copied" ? "✓ Copied!" : copiedCron === "blocked" ? "Blocked" : "Copy"}
             </button>
           )}
         </div>
@@ -592,7 +786,7 @@ export default function Explainer({
           Or describe a schedule in plain English
         </label>
         <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-500">
-          Describe a schedule in plain English.
+          Supported phrasings: &ldquo;every weekday at 9am&rdquo;, &ldquo;every 15 minutes&rdquo;, &ldquo;first of the month at noon&rdquo;, &ldquo;every monday at 8am&rdquo;, &ldquo;midnight every day&rdquo;. Click an example chip below or type your own.
         </p>
         <input
           id="english-input"
@@ -692,9 +886,51 @@ export default function Explainer({
                   </div>
                 )}
               </div>
-              <p className="mt-1 text-lg text-zinc-900 dark:text-zinc-100">
-                {result.description}
-              </p>
+              <div className="mt-1 flex items-start gap-3">
+                <p
+                  data-testid="single-description"
+                  className="flex-1 text-lg text-zinc-900 dark:text-zinc-100"
+                >
+                  {result.description}
+                </p>
+                {/* Copy plain-English description — single mode */}
+                <button
+                  type="button"
+                  data-testid="copy-description-btn"
+                  aria-label={
+                    copiedDesc === "copied"
+                      ? "Copied!"
+                      : copiedDesc === "blocked"
+                      ? "Copy blocked"
+                      : "Copy explanation"
+                  }
+                  onClick={() => copyDesc(result.description)}
+                  className={`mt-1 shrink-0 border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition-all ${
+                    copiedDesc === "copied"
+                      ? "border-green-500 bg-green-50 text-green-700 dark:border-green-600 dark:bg-green-950 dark:text-green-300"
+                      : copiedDesc === "blocked"
+                      ? "border-red-400 bg-red-50 text-red-700 dark:border-red-600 dark:bg-red-950 dark:text-red-300"
+                      : "border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
+                  }`}
+                >
+                  {copiedDesc === "copied"
+                    ? "✓ Copied"
+                    : copiedDesc === "blocked"
+                    ? "Blocked"
+                    : "Copy"}
+                </button>
+              </div>
+              {copiedDesc !== "idle" && (
+                <span
+                  role="status"
+                  data-testid="copy-description-status"
+                  className="sr-only"
+                >
+                  {copiedDesc === "copied"
+                    ? "Explanation copied"
+                    : "Clipboard write was blocked"}
+                </span>
+              )}
 
               {/* I: Translate result — shown prominently below the description, scrolled into view */}
               {translateTarget && translateResult && (
@@ -742,19 +978,21 @@ export default function Explainer({
                         <button
                           type="button"
                           data-testid="translate-copy-btn"
-                          aria-label={copiedTranslated ? "Copied!" : "Copy translated expression"}
+                          aria-label={copiedTranslated === "copied" ? "Copied!" : copiedTranslated === "blocked" ? "Copy blocked" : "Copy translated expression"}
                           onClick={() => {
                             if (translateResult.expression) {
                               copyTranslated(translateResult.expression);
                             }
                           }}
                           className={`rounded border px-3 py-1.5 text-xs font-semibold transition-all ${
-                            copiedTranslated
+                            copiedTranslated === "copied"
                               ? "border-green-500 bg-green-100 text-green-800 ring-1 ring-green-400 dark:border-green-500 dark:bg-green-900 dark:text-green-200"
+                              : copiedTranslated === "blocked"
+                              ? "border-red-400 bg-red-50 text-red-700 dark:border-red-600 dark:bg-red-950 dark:text-red-300"
                               : "border-blue-300 bg-white text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-zinc-800 dark:text-blue-300"
                           }`}
                         >
-                          {copiedTranslated ? "✓ Copied!" : "Copy"}
+                          {copiedTranslated === "copied" ? "✓ Copied!" : copiedTranslated === "blocked" ? "Blocked" : "Copy"}
                         </button>
                       </div>
                     </div>
@@ -837,12 +1075,14 @@ export default function Explainer({
                   type="button"
                   onClick={() => copyLink(permalinkUrl)}
                   className={`shrink-0 rounded-md border px-3 py-1.5 text-sm font-medium shadow-sm transition-colors ${
-                    copiedLink
+                    copiedLink === "copied"
                       ? "border-green-400 bg-green-50 text-green-700 dark:border-green-600 dark:bg-green-950 dark:text-green-300"
+                      : copiedLink === "blocked"
+                      ? "border-red-400 bg-red-50 text-red-700 dark:border-red-600 dark:bg-red-950 dark:text-red-300"
                       : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
                   }`}
                 >
-                  {copiedLink ? "✓ Copied!" : "Copy link"}
+                  {copiedLink === "copied" ? "✓ Copied!" : copiedLink === "blocked" ? "Blocked" : "Copy link"}
                 </button>
               </div>
             </section>
@@ -853,6 +1093,9 @@ export default function Explainer({
           <p className="mt-6 text-sm text-zinc-500 dark:text-zinc-400">
             Parsing...
           </p>
+        )}
+
+        </> /* end mode === "single" */
         )}
 
         {/* API/Developers section */}

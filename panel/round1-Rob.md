@@ -1,39 +1,15 @@
-# Rob — Round 1
-- advocacy: 8
-- clarity: Yes
-- value: Yes
+Rob — Brand/visual designer, freelance. Uses cron rarely; comes back to decode `0 */4 * * *` and confirm next backup run.
 
-## What I did
-Loaded cold. The headline "Cron Explainer" + subhead "Paste a cron expression and see what
-it means in plain English, plus its next 5 run times" told me what this is in about 5
-seconds — no guessing. Cleared the prefilled example, pasted my real `0 */4 * * *`. Got
-"On the hour, every 4 hours" plus next 5 runs AND a "Previous run: ... (3 hours ago)" line.
-That previous-run line is the thing I actually open these for — confirms my last backup
-already fired and the next is "in 36 minutes." Clean.
+CLARITY: Yes. Headline "Cron Explainer" + the subline "Paste a cron expression and see what it means in plain English, plus its next 5 run times" told me exactly what it is in 5 seconds. I pasted my real expression `0 */4 * * *` and got "On the hour, every 4 hours" plus the actual next 5 timestamps with "in 2 hours / in 6 hours" — that is precisely the thing I open this for. I'd tell a friend: "paste a cron line, it tells you what it means and when it next fires." The toggle SINGLE EXPRESSION / CRONTAB FILE is plainly labeled top-left; found it instantly.
 
-## Friction (brutally honest)
-- Minor: the two tz controls live far apart — SOURCE ("THIS SCHEDULE RUNS IN") is way up by
-  the cron box, DISPLAY ("Show times in") is down next to the run list. I didn't connect
-  them as a pair until I'd scrolled twice. They'd read as one concept if they were closer.
-- The DEVELOPERS / API block at the bottom is noise for me — I'm not hitting an endpoint, I
-  just want the times. Harmlessly ignorable, but it's the longest block on the page.
-- "Copy" / "Copy link" — clicked, label behavior fine (copy verified visually; clipboard
-  read blocked in test env, not reporting as a bug).
-- Nothing broke. No console errors. Parsed every form of my expression. Fast.
+VALUE: Yes (for my narrow occasional need). Today I either squint at crontab.guru or just guess and re-run my backup at a weird hour to confirm. This beats crontab.guru on one thing I actually care about: it shows the NEXT 5 real run times in my local timezone AND a "previous run" line, so I can confirm "yes my 4-hour backup already fired at 8am and next is noon" without doing mental math. The CRONTAB FILE mode parsed my whole 4-line file, flagged my typo line in red ("Not a valid cron expression... Expected at least 5 fields"), and split comments from jobs — nice, but honestly I almost never have a multi-line crontab to decode, so that mode is not for me. The single-expression + next-runs flow is the keeper.
 
-## On the timezone feature specifically
-This is the part I expected to be over my head, and it mostly wasn't — because of ONE line.
-By default both are "Local," times show in my Pacific, and I can completely ignore the whole
-thing. That's the right default for an occasional user: invisible until I want it.
+ADVOCACY: 6. It does my one job well and it's free with no signup, which I respect. But I'd only recommend it to a developer friend, not unprompted — for me personally this is a once-every-few-months tool, so it doesn't earn a spot in my head the way a daily Figma/Photoshop utility would. The crontab-file mode (the new feature) is irrelevant to my workflow; it's clearly built for devops people. Nothing confused me and nothing broke — the score is purely "low recurrence for my line of work," not a quality knock. crontab.guru already exists and is the thing people reach for, so the next-run-times advantage isn't enough to make me evangelize.
 
-The win: I flipped SOURCE to UTC (the helper text literally says "switch the source to UTC
-if this runs on a server" — that IS my backup script). The runs shifted to 1/5/9 PM Pacific
-and a line appeared: "Runs in UTC · shown in America/Los_Angeles." THAT sentence is what
-makes two selectors safe for someone like me — it spells out which is which in English so I
-don't have to hold "source vs display" in my head. Without that line, two tz dropdowns would
-have just confused me. With it, it answered my actual question: "my server runs UTC, when
-does it fire MY time."
+found_crontab_mode: Yes
 
-Knock for the 8 not a 9: I had to discover that myself, and the two selectors being far
-apart on the page makes the source/display relationship less obvious than it should be. Put
-them next to each other (or one labeled "runs in __ , show in __" row) and this is a 9.
+bugs_or_friction: none functional. The DEVELOPERS API block at the bottom is noise for me, but it's tucked away and harmless.
+
+```json
+{"name":"Rob","clarity":"Yes","value":"Yes","advocacy":6,"advocacy_reason":"Nails my one occasional need (decode + next run times, beats crontab.guru on showing next 5 runs in local tz) and it's free/no-signup, but it's a once-every-few-months tool for a visual designer so I wouldn't bring it up unprompted; the new crontab-file mode is squarely for devops, not me.","found_crontab_mode":"Yes","most_important_quote":"On the hour, every 4 hours — NEXT 5 RUNS: Fri Jun 19 12:00 PM (in 2 hours), Previous run: 08:00 AM (2 hours ago)","bugs_or_friction":["No functional bugs found","Both modes work, invalid lines flagged clearly in red","DEVELOPERS API section is noise for a non-dev but harmless"]}
+```

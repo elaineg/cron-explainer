@@ -1,60 +1,65 @@
-# Cron-Explainer — Panel SYNTHESIS Round 1 (timezone-aware next-run feature)
+# Cron Explainer — Panel SYNTHESIS Round 1
 
-Run: 20260618-103919-daily. Tested cold against http://localhost:3021 (local prod server).
-Feature under test: TWO tz selectors — SOURCE ("This schedule runs in") + DISPLAY ("Show times in"),
-"Runs in X · shown in Y" line on mismatch, privacy line. Validator + verifier already PASSED (174 unit + 129 e2e).
+Feature under test: NEW "Explain a whole crontab file" mode (SINGLE EXPRESSION · CRONTAB FILE toggle).
+App tested locally at http://localhost:3210 (production build).
+ICP: developers / devops / data engineers. Out-of-ICP roster members flagged.
 
 ## Score table
 
-| Persona | In-audience | Advocacy | Clarity | Value | Holds-at-8/7 reason |
-|---------|-------------|----------|---------|-------|---------------------|
-| Marcus  | yes (eng)   | 9 | Yes | Yes | — (at bar) |
-| Tomás   | yes (ops)   | 9 | Yes | Yes | — (at bar) |
-| Jules   | yes (ops/marketer) | 9 | Yes | Yes | — (at bar) |
-| Priya   | yes (eng)   | 8 | Yes | Yes | source block noisy; invalid-expr no error msg (pre-existing) |
-| Wen     | yes (data)  | 8 | Yes | Yes | **split-selector discoverability**; inverted ?tz= API/UI; no CSV (oos) |
-| Elena   | yes (mgr)   | 8 | Yes | Yes | can't enter claimed-timestamp y/n (oos backlog); prev-run small |
-| Sam     | yes (PM)    | 8 | Yes | Yes | **split-selector proximity/labeling on mobile**; inverted ?tz= |
-| Rob     | soft (designer occasional) | 8 | Yes | Yes | **selectors far apart**; API block noise |
-| Aisha   | soft (designer craft) | 8 | Yes | Yes | gray helper pile-up under source pills; doubled display-tz line |
-| Dana    | non-fit (simple marketer) | 7 | Yes | Yes | English box buried (pre-existing layout); tz clutter for her simple need |
+| Tester | ICP | Clarity | Value | Advocacy | Found crontab mode | Most important quote |
+|--------|-----|---------|-------|----------|--------------------|----------------------|
+| Priya (sr backend eng) | in | Yes | Yes | 8 | Yes | "Whole-crontab mode beats crontab.guru's one-at-a-time; held back only by no K8s UTC nudge + heavy vertical scroll." |
+| Marcus (frontend eng) | in | Yes | Yes | 8 | Yes | "The English parser is brittle — 'at midnight every day' fails with no suggestion; that's the exact moment I'd bounce to Google." |
+| Wen (mktg data analyst) | in | Yes | Yes | 9 | Yes | "It kills my real fear: 0 6 * * * on a UTC server — RUNS IN=UTC/SHOW=LA showed 11pm PDT correctly." |
+| Tomás (ops analyst) | in | Yes | Yes | 9 | Yes | "Browser-only, IT can't install-block it, zero external requests — safe for company config." |
+| Dana (demand-gen mktr) | borderline | Yes | Yes | 8 | Yes | "Typed 'every Monday at 8am', copied 0 8 * * 1 — my whole job in 15s; but loose phrasing gets rejected with no fix." |
+| Jules (content mktr) | borderline | Yes | Yes | 9 | Yes | "Beats crontab.guru for auditing a whole file + the timezone split nails the server-cron gotcha." |
+| Aisha (product designer) | borderline/in | Yes | Yes | 9 | Yes | "Genuinely considered craft — but the 'de-emphasized' comment/env rows aren't actually dimmed, so jobs don't pop." |
+| Rob (visual designer) | OUT | Yes | Yes (narrow) | 6 | Yes | "Does my one job well, free, no signup — but it's a once-every-few-months tool for a designer; file mode is built for devops, not me." |
+| Elena (eng manager) | in | Yes | Yes | 8 | Yes | "Incident reviews are about PAST runs; it only shows NEXT runs, so I still back-compute." |
+| Sam (product manager) | borderline | Yes | **No** | 5 | Yes | "I can't copy the plain-English gloss or get a shareable crontab link — it fails my one job." |
 
-In-audience-at-9: 3/9 (Marcus, Tomás, Jules). Clarity+Value: 10/10 Yes (feature is universally understood + valued).
+Advocacy mean: 7.9. Found crontab mode: 10/10 (no discoverability defect).
 
-## Grouped findings
+## Exit-bar status (audience-weighted: ~9/10 at advocacy >=9 AND clarity=Yes AND value=Yes)
 
-### A. CORE FIXABLE (feature-introduced, in-scope) — split-selector proximity / discoverability
-Cited by Wen, Sam, Elena, Rob, Aisha, Priya (6 in-audience). SOURCE selector sits up by the cron input;
-DISPLAY selector is buried down inside the NEXT 5 RUNS card. Several testers initially saw only ONE tz
-control and nearly concluded the "show in my tz" half was missing (Wen). On mobile both look identical
-(Local/UTC pills + combobox) and which-is-which costs a scroll (Sam, Elena). The "Runs in X · shown in Y"
-line is what rescues legibility once both are seen — but the two controls must read as ONE paired concept.
-FIX: visually pair the two selectors (e.g. a single "Runs in __ · show in __" row, or place DISPLAY adjacent
-to SOURCE / cross-reference them) so the source→display relationship is obvious without hunting. This is the
-core legibility risk the feature introduced and the gating defect.
+Advocacy >=9 with clarity+value=Yes: **4/10** (Wen, Tomás, Jules, Aisha).
+Clarity=Yes: 10/10. Value=Yes: 9/10 (Sam = No).
+**Verdict: CONTINUE — bar not met.**
 
-### B. SECONDARY FIXABLE (feature-introduced) — gray helper-line pile-up under source pills
-Aisha + Priya. Three stacked same-weight gray lines under the SOURCE pills ("Servers usually run cron in UTC…",
-the dialect "5-field Unix/6-field Quartz…" help, and the privacy "nothing is sent" line) read as one
-undifferentiated block; the DIALECT helper is misplaced (belongs under DIALECT, not under the tz pills).
-FIX: regroup — dialect helper under DIALECT; keep only the UTC nudge with the source control; give the
-privacy line its own breathing room. Cheap spacing/grouping change.
+In-ICP core (Priya, Marcus, Wen, Tomás, Elena): only 2/5 at 9+ (Wen, Tomás). The three in-ICP holdouts (Priya 8, Marcus 8, Elena 8) all clear clarity+value and cite specific, fixable gaps — not fundamental rejection. This is a fixable round, not a stall.
 
-### C. MINOR (feature-adjacent footgun) — inverted ?tz= meaning API vs UI permalink
-Wen + Sam. UI permalink uses ?tz= for DISPLAY and ?src= for SOURCE; the API uses ?tz= for the SOURCE.
-A hand-edited link means different things in the two surfaces. Real but lower-severity; the Developers note
-already discloses it. Consider aligning or clarifying, but not gating.
+## Complaints grouped by cause
 
-### D. NON-GATING (pre-existing / out-of-scope / non-fit preference)
-- Invalid-expression shows no field-level error message (Priya) — PRE-EXISTING parser-UX, backlog.
-- No claimed-timestamp "would it have fired at 3:07?" yes/no (Elena) — OUT-OF-SCOPE feature request, backlog.
-- English-generator box buried below raw-cron decoder + "hide tz behind Advanced" (Dana) — pre-existing
-  layout + a non-fit's ask that conflicts with the in-audience value of surfacing tz; NOT chased.
-- No CSV/bulk export (Wen) — out of scope.
-- API/Developers block is long (Rob) — harmlessly ignorable.
+### A. Core action hard to find / output not usable (TRUST + WORKFLOW) — highest priority
+- **No copy of the plain-English gloss; no copy/export/share in crontab-file mode** — Sam (value=No, adv 5, BLOCKER), Wen (adv 9 holdout), Sam's named job is paste-gloss-into-ticket. Single mode's "Copy" grabs raw cron, not the English sentence. Recurs across 2 personas, is the only value=No, and is the single biggest advocacy drag.
 
-## Decision
-Fix A (gating) + B (cheap, same area) this round. C is borderline — note for backlog, not gating.
-D items are pre-existing/oos/non-fit and do not gate per the audience-weighted DEEPEN bar.
-Re-test in round 2: the 6 sub-9 in-audience + soft personas touched by the fix (Wen, Sam, Elena, Rob, Aisha,
-Priya); carry forward Marcus, Tomás, Jules (passing, untouched) and Dana (non-fit, non-gating).
+### B. Natural-language parser brittleness (single-expression mode)
+- "at midnight every day", "every 15 minutes during business hours", "every monday morning" all fail with no suggestion/fallback — Marcus (adv 8, his #1), Dana (adv 8, her top friction). On parse failure the prior valid cron stays in the box (ambiguous) — Marcus. Recurs across 2 personas; it's the bounce-to-Google moment.
+
+### C. Timezone default for server/inherited crontabs
+- Defaults to local tz; inherited/server crontabs run in UTC — Tomás (adv 9 holdout, "off by 7 hours until I find the toggle"), Priya (no K8s-CronJob-defaults-to-UTC nudge), Elena (UTC should be more prominent on mobile). Recurs across 3 personas. The control EXISTS and is correct (Wen/Priya/Tomás all confirmed DST-correct conversion) — the gap is default + discoverability, not correctness.
+
+### D. Craft: de-emphasis not visually real
+- In crontab-file mode the comment/env row TEXT renders at the same near-black as job rows; de-emphasis lives only in the small gray type label, so valid jobs don't pop — Aisha (adv 9 holdout, craft specialist). Single-persona but the named designer; high-signal.
+- Mode toggle is a low-contrast text pill that could read as static label — Aisha. (Note: discoverability was NOT a problem — 10/10 found it — but the visual affordance is weak.)
+
+### E. Past-run view (feature gap, lower priority)
+- Incident-review use wants "did it fire at 3:14am yesterday?" — only next-runs shown — Elena (adv 8), Priya noted a previous-run line exists in single mode (Rob used it), so partial coverage already there; gap is surfacing it in file mode / clearer past timeline.
+
+### F. Dev chrome noise for marketers (low priority)
+- DIALECT/UTC controls + bottom DEVELOPERS/API block read as jargon for marketers — Dana, Jules. Borderline-ICP cosmetic; do not over-rotate.
+
+### G. Vertical scroll / density (low priority)
+- Per-job next-5-runs with no compact toggle makes long crontabs scroll-heavy — Priya.
+
+## Out-of-ICP documentation
+- **Rob (freelance visual designer) — advocacy 6, the documented non-fit.** Rates clarity+value Yes for his narrow occasional need but explicitly "wouldn't bring it up unprompted; file mode is built for devops, not me." This is a legitimate roster-fit floor, not a product defect. Excluded from the pass numerator as an expected out-of-ICP holdout.
+- Dana/Jules (marketers) and Sam (PM) are borderline-ICP; their scores are counted normally. Sam's value=No is a real workflow blocker (copy/share), NOT a roster-fit issue, and must be fixed.
+
+## Recommended fixes for next round (mapped to complaints)
+1. **A (do first):** make the plain-English description copyable in BOTH modes; add copy/export of the whole explained crontab (and ideally a permalink for file mode). Resolves Sam (value=No→Yes) + lifts Wen toward 10. Highest leverage.
+2. **B:** broaden NL parser coverage (midnight/business-hours/"morning") + on failure show a suggestion and don't silently leave the stale cron. Lifts Marcus + Dana.
+3. **C:** smarter/clearer tz default for pasted files (detect server-UTC intent or surface a prominent "these times are in LOCAL — switch to UTC for server crontabs" nudge). Lifts Tomás→10, Priya, Elena.
+4. **D:** actually dim comment/env row text (not just the label) so jobs pop; strengthen the toggle's affordance. Lifts Aisha→10.
+5. Defer E/F/G unless cheap.

@@ -65,18 +65,37 @@ Core flows:
    not a valid IANA timezone, the API returns 400 `{ "error": "Unknown timezone: <value>" }`
    — it does NOT silently coerce to UTC. Status 200, or `{ "error": string }` with status 400
    for input invalid in all dialects or invalid tz. The home page documents this endpoint.
-4. Shareable permalinks: whenever the current input is a valid expression, the page shows an
-   always-visible copyable permalink of the form `<origin>/e/<url-encoded-expression>` with
-   a Copy-link button that shows a green "Copied!" confirmation for ~1.5s. The permalink
-   carries the chosen timezones so a shared link reproduces the same view: a DISPLAY-tz param
-   `?tz=<IANA>` (legacy `?tz=UTC` continues to mean display-in-UTC and is omitted when display
-   is Local) and a SOURCE-tz param `?src=<IANA>` (omitted when source is the default Local).
-   Opening a link with these params restores both selectors and renders identical next-5.
-   The page also accepts `?expr=` and `?cron=`
-   query-string aliases that prefill the input identically to the `/e/<expr>` form.
-   Opening any of these renders the app pre-filled — no extra interaction needed. Invalid
-   or garbage `/e/...` paths render the app with the raw string in the input and the normal
-   inline error (no crash, no 500).
+   PERMALINK (sub-capability of flow 1): whenever the current input is a valid expression, the
+   page shows an always-visible copyable permalink of the form `<origin>/e/<url-encoded-expression>`
+   with a Copy-link button that shows a "Copied!" confirmation for ~1.5s. The permalink carries
+   the chosen timezones so a shared link reproduces the same view: a DISPLAY-tz param `?tz=<IANA>`
+   (legacy `?tz=UTC` continues to mean display-in-UTC and is omitted when display is Local) and a
+   SOURCE-tz param `?src=<IANA>` (omitted when source is the default Local). Opening a link with
+   these params restores both selectors and renders identical next-5. The page also accepts
+   `?expr=` and `?cron=` query-string aliases that prefill the input identically to the
+   `/e/<expr>` form. Opening any of these renders the app pre-filled — no extra interaction
+   needed. Invalid or garbage `/e/...` paths render the app with the raw string in the input and
+   the normal inline error (no crash, no 500).
+4. Explain a whole crontab file: a CRONTAB-FILE mode (reached by an explicit, always-visible
+   mode toggle next to the cron input — "Single expression" | "Crontab file", with single
+   the default so flow 1 never regresses) where the user pastes a MULTI-LINE crontab into a
+   textarea. The app parses the file LINE BY LINE, preserving file order, and renders one row
+   per line: (a) each JOB line is explained with the SAME engine as flow 1 — its raw expression,
+   the plain-English description, and the next 5 run times — reusing explainCron per line, NOT a
+   forked parser; (b) `KEY=VALUE` ENVIRONMENT lines are detected and shown in a de-emphasized,
+   labeled "ENV" treatment (key + value, no cron explanation); (c) `# COMMENT` lines are shown
+   de-emphasized with a "COMMENT" label; (d) BLANK lines are collapsed/shown as a thin spacer so
+   the file reads top-to-bottom as written; (e) an INVALID job line shows the existing inline
+   per-line error ("Not a valid cron expression: ...") WITHOUT breaking the parsing or rendering
+   of any other line. A short summary line states the counts (e.g. "4 jobs · 1 environment
+   variable · 2 comments · 1 invalid line"). The SOURCE-tz and DISPLAY-tz selectors apply to
+   EVERY job in the file consistently (one set of selectors governs the whole file). A one-click
+   "Load a sample crontab" button fills the textarea with a realistic known multi-job crontab
+   (with at least one env var, one comment, one blank line, and one intentionally-invalid line)
+   so the whole flow is visible in seconds. This multi-line auditing is the differentiator
+   crontab.guru lacks (it handles single lines only). The crontab textarea is NOT shared by URL
+   (no permalink for file mode); the single-expression permalink (flow 1 sub-capability) is
+   unchanged.
 
 Builder decisions (binding):
 - Support standard Unix 5-field cron (minute hour day-of-month month day-of-week), including
@@ -121,6 +140,19 @@ Builder decisions (binding):
   Both selectors use a free arbitrary-IANA list (`Intl.supportedValuesOf('timeZone')`) with
   search — no paid/network tz service. DST correctness comes for free from cron-parser (source)
   + `Intl`/`toLocaleString` with `timeZone` (display); add tests proving a source-tz DST case.
+- CRONTAB-FILE mode (binding): the line classifier runs client-side and is deterministic —
+  blank/whitespace-only → BLANK; first non-whitespace char `#` → COMMENT; matches
+  `^\s*[A-Za-z_][A-Za-z0-9_]*\s*=` → ENV (split on the first `=`); else → JOB line, fed VERBATIM
+  to the SAME `explainCron` used by flow 1 (per line; no forked parser). A JOB line that throws
+  CronError renders the existing inline error string for THAT line only and never aborts the
+  loop. Each JOB row also reuses the per-line dialect auto-detect (and may show the detected
+  dialect badge inline, compact); there is no per-line override in MVP — file mode is read-only
+  auditing. The SOURCE/DISPLAY tz selectors are the SAME state object used by single-expression
+  mode (one set governs all jobs). The mode toggle preserves the single-expression input when
+  switching back (no data loss). e2e/SELECTOR NOTE: the cron `<input id="cron-input">` and the
+  surrounding control structure are shared landing structure — if adding the mode toggle changes
+  the input element, its wrapper, or the dialect/tz rows, UPDATE the existing e2e selectors that
+  target them IN THE SAME CHANGE (intended-change-to-shared-landing-structure leaves stale e2e).
 - API back-compat: `/api/explain?tz=` KEEPS its existing meaning (the execution/source tz that
   next-runs are computed in) — do NOT repurpose it. The UI permalink's `?tz=` is the DISPLAY tz
   and `?src=` is the source tz; this UI/API split is pre-existing and stays. Document it on-page.
@@ -191,6 +223,45 @@ Success checks:
   case-insensitive).
 - Visiting `<prod>/e/banana` in a browser shows "banana" in the input plus the inline
   invalid-expression error; the response status is not a 5xx.
+- CRONTAB-FILE — mode toggle visible on cold load: the home page shows an explicit
+  "Single expression" | "Crontab file" toggle, with "Single expression" active and the existing
+  single-input flow rendered byte-identically (all flow-1 checks above still hold). Switching to
+  "Crontab file" reveals a textarea + a "Load a sample crontab" button; switching back restores
+  the single-expression input unchanged.
+- CRONTAB-FILE — sample is seedable and time-invariant: clicking "Load a sample crontab" fills
+  the textarea with EXACTLY this content (the verifier asserts these literal strings, which never
+  change with wall-clock time):
+  ```
+  # Backup database every night
+  MAILTO=ops@example.com
+  0 2 * * * /usr/local/bin/backup.sh
+  */15 9-17 * * MON-FRI /usr/local/bin/poll.sh
+
+  @daily /usr/local/bin/rotate-logs.sh
+  0 9 1 * * /usr/local/bin/send-invoices.sh
+  61 * * * * /usr/local/bin/broken.sh
+  ```
+  After loading, the rendered output contains, in file order: a COMMENT row showing
+  "Backup database every night"; an ENV row labeled with key "MAILTO" and value
+  "ops@example.com"; a JOB row for `0 2 * * *` whose description contains "2:00 AM" (or "02:00");
+  a JOB row for `*/15 9-17 * * MON-FRI` whose description contains "Monday through Friday"; a JOB
+  row for `@daily` with a midnight/daily description; a JOB row for `0 9 1 * *` whose description
+  mentions day 1 of the month; and an INVALID row for `61 * * * *` showing the inline
+  "Not a valid cron expression" error (minute 61 out of range) WITHOUT removing or breaking any
+  other row. Each valid JOB row shows exactly 5 next-run times. (All asserted strings are
+  descriptions/labels, NOT wall-clock-relative next-run values.)
+- CRONTAB-FILE — summary counts: with the sample loaded, a summary line reports
+  "4 jobs · 1 environment variable · 1 comment · 1 invalid line" (exact counts; the 4 valid
+  jobs = the two `*` cron lines + `@daily` + `0 9 1 * *`, the invalid line counted separately).
+- CRONTAB-FILE — one bad line doesn't break the file: replacing only the `0 2 * * *` line with
+  garbage (e.g. `not a cron line here`) leaves every OTHER row rendered correctly and shows the
+  inline error on only that one row; the page never crashes or blanks.
+- CRONTAB-FILE — shared timezone selectors: with the sample loaded, switching SOURCE to UTC (or
+  DISPLAY to UTC) re-renders the next-run times of ALL job rows consistently with the single
+  set of selectors; no per-row timezone control exists.
+- CRONTAB-FILE — engine reuse parity: the description text and next-5 for `*/15 9-17 * * MON-FRI`
+  shown as a row in crontab-file mode is identical to the description + next-5 the same
+  expression produces in single-expression mode under the same source/display tz.
 
 Out of scope:
 - A visual/point-and-click cron builder.
@@ -202,6 +273,10 @@ Out of scope:
   clear error). English-generate emits Unix only — it does not target Quartz/AWS dialects.
 - Accounts, saved expressions, history, rate limiting, or any persistence. (Sharing is
   permalinks only — no short links, no stored state.)
-- Explaining crontab files with multiple lines or environment variables.
+- Per-line dialect/timezone overrides in crontab-file mode (one global dialect-autodetect +
+  one global source/display tz governs the whole file; file mode is read-only auditing).
+- Editing/exporting/sharing a crontab file by URL, or validating crontab-specific syntax beyond
+  the cron expression itself (e.g. `MAILTO`/`PATH` semantics, `@reboot` scheduling, run-as-user
+  fields). ENV and comment lines are surfaced/labeled, not semantically validated.
 
 Production URL: https://cron-explainer-xi.vercel.app

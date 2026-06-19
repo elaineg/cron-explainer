@@ -121,6 +121,80 @@ Compact, tool-like spacing — dense but not cramped.
 - F: Always-visible copyable permalink row when valid; accept `?expr=`/`?cron=` aliases.
 - G: (If cheap) one "Previous run" line in the active zone.
 
+## CRONTAB-FILE MODE (2026-06-19 add-feature) — audit a whole crontab, not one line
+
+**Problem statement (one sentence):** Paste your entire crontab and read, line by line, what
+every scheduled job actually does and when it next runs — comments and settings included.
+
+**Primary user action:** paste a multi-line crontab (or click "Load a sample crontab") and
+immediately see each job explained in plain English with its next runs. The mode toggle + the
+loaded sample make the payoff visible before the user types anything.
+
+**Emotional tone:** unchanged from the app — fast, precise, developer-trustworthy; mono for
+cron/timestamps, sentence-case prose, monochrome ink/paper/grey per the house system, hairline
+rules between rows, square corners, no shadows. File mode reads like a clean audit table, not a
+busy dashboard. (NOTE to builder: the current build still carries legacy blue/green accents; do
+NOT add MORE color — new file-mode chrome must be monochrome ink/grey + hairlines per
+`lib/design-system/ssense.md`. Active toggle = ink fill / paper text inversion, not blue.)
+
+### Mode switch — EXPLICIT, never auto-detect, never buried (added-feature-buried)
+- A two-segment toggle sits DIRECTLY ABOVE the cron input, on its own row, always visible on
+  cold load: **SINGLE EXPRESSION · CRONTAB FILE** (uppercase micro-labels, segmented, active =
+  ink inversion). "Single expression" is active by default — flow 1 is byte-identical and the
+  toggle does not push the input/first result below the fold at 375px.
+- Chosen mechanism = EXPLICIT toggle, NOT auto-detect-on-paste. Rationale: auto-switching when a
+  user pastes a multi-line string would silently move the cursor/layout and is undiscoverable in
+  reverse; an always-visible labeled toggle teaches the capability in the 5-second window. (A
+  one-line hint under the single-expression input — "Got a whole crontab? Switch to Crontab
+  file" — points to it without hijacking paste.)
+- Switching to CRONTAB FILE swaps the single `<input>` for a monospace `<textarea>` (8–10 rows,
+  resizable) with a "Load a sample crontab" tertiary button flush-right of the textarea label.
+  Switching back restores the prior single-expression input verbatim (no data loss). Dialect
+  badge, English-generate input, and permalink are HIDDEN in file mode (they're single-line
+  concepts); the SOURCE/DISPLAY tz block STAYS visible and governs all rows.
+- SELECTOR NOTE for builder: the mode toggle wraps the existing `#cron-input`. If you change the
+  input's wrapper/structure, update the existing e2e selectors in the SAME change
+  (intended-change-to-shared-landing-structure leaves stale e2e).
+
+### Result layout — one row per file line, file order preserved, reads top-to-bottom
+- Render an ordered list of rows separated by 1px `--grey-200` hairlines (no cards, no shadow).
+  Each row's left gutter carries a tiny uppercase micro-label tag stating its kind:
+  **COMMENT · ENV · JOB · INVALID** (grey-600; INVALID uses `--red` text only, no fill).
+- **JOB row:** raw expression in mono (ink) on the first line; the plain-English description in
+  sentence case below it; then the next-5 run times in the SAME compact list treatment as
+  single-expression mode (absolute + relative), governed by the shared tz selectors. A compact
+  detected-dialect tag may sit beside the raw expression.
+- **ENV row:** de-emphasized (grey-600), `KEY` in mono medium + value in mono regular, tagged
+  ENV. No cron explanation.
+- **COMMENT row:** de-emphasized (grey-600), the comment text in mono, tagged COMMENT.
+- **BLANK line:** collapses to a thin spacer (extra vertical gap / a faint hairline) so the file
+  visually breathes where the author left a blank line; not a labeled row.
+- **INVALID JOB row:** shows the raw line + the existing inline "Not a valid cron expression…"
+  error (red text) for THAT row only; every other row renders normally — one bad line never
+  blanks the file.
+- A single SUMMARY line sits above the rows: "4 jobs · 1 environment variable · 1 comment · 1
+  invalid line" (uppercase-meta register, grey-600), giving an at-a-glance audit count.
+
+### "Load a sample crontab" — instant worked example (seedable, time-invariant)
+- A tertiary button by the textarea fills it with the EXACT sample fixed in APP_SPEC (a comment,
+  a `MAILTO=` env var, four valid jobs incl. `@daily` and a day-of-month job, one blank line, and
+  one intentionally-invalid `61 * * * *` line). On a first cold switch to file mode with an empty
+  textarea, the worked example is what a visitor sees in seconds — no blank box.
+- The sample is SEEDABLE: the validator/verifier asserts literal description/label strings
+  (e.g. "Monday through Friday", "MAILTO", "Not a valid cron expression"), NEVER a wall-clock
+  next-run value, so the checks stay green regardless of when they run.
+
+### Timezone — one set of selectors governs the whole file
+- The existing SOURCE ("Runs in") and DISPLAY ("Show times in") selector block stays put and
+  applies to EVERY job row consistently. No per-row tz control. Changing either re-renders all
+  rows' next-runs at once. The "Runs in X · shown in Y" relationship line (when source ≠ display)
+  applies file-wide, shown once near the top of the results, not per row.
+
+### 5-second check (file mode)
+- Headline/subtitle unchanged; the SINGLE EXPRESSION · CRONTAB FILE toggle is visible above the
+  input on cold load; one switch + "Load a sample crontab" shows a fully-explained multi-job
+  audit (comment, env, jobs with next-runs, and a flagged invalid line) within seconds.
+
 ## TIMEZONE-AWARE NEXT-RUN (2026-06-18 add-feature)
 
 Cron has TWO timezone concepts — the zone the schedule RUNS in vs. the zone the results are

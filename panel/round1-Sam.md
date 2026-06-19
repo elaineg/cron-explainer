@@ -1,37 +1,31 @@
-# Sam — Round 1
-- advocacy: 8
-- clarity: Yes
-- value: Yes
+# Round 1 — Sam (Product manager, mobile-heavy)
 
-## What I did
-Opened cold on a 375px mobile viewport (where I live between meetings). Read the title
-"Cron Explainer" + subtitle in ~10s and immediately got it: paste cron -> plain English +
-next runs, or describe in English -> cron. Pasted `0 9 * * MON-FRI` for a real ticket I'd
-write. Got "At 09:00 AM, Monday through Friday" plus the next 5 runs and a previous-run
-line. Found the PERMALINK + Copy link near the bottom. Set SOURCE=Europe/Berlin and
-DISPLAY=Asia/Tokyo, copied the link, opened it fresh — cron, source, AND display all
-restored, and "Runs in Europe/Berlin · shown in Asia/Tokyo" reappeared. This is exactly
-the artifact I want in a ticket: cron string + English gloss + a link that re-opens with
-the same timezone framing for engineers and stakeholders.
+I toggled to CRONTAB FILE, pasted a 6-line crontab (comments + one junk line). It rendered
+one clean row per line — comment / job / dialect / plain-English / next 5 runs — and flagged
+the junk line as "Not a valid cron expression: it has 4 fields." That part is genuinely good.
 
-## Friction (brutally honest)
-- The two timezone controls are FAR apart and look identical: SOURCE ("THIS SCHEDULE RUNS
-  IN") sits up by the cron input; DISPLAY ("Show times in") is buried inside the NEXT 5 RUNS
-  card. Both have a Local/UTC toggle + an "Other…" combobox. On mobile I had to scroll and
-  read carefully to be sure which was which. They should live side by side, or the source
-  one should be labeled "Source / where the server runs" more loudly.
-- The "Other…" combobox isn't obviously a city picker — placeholder just says "Other…". I
-  typed "Berlin" and a one-row dropdown appeared, which worked, but a less patient me might
-  not realize I can type a city. A little "type a city/IANA zone" hint would help.
-- Permalink uses `?tz=` for DISPLAY and `?src=` for SOURCE, which is backwards from the API
-  (where `?tz=` is the source). The Developers note flags this, but it's a footgun if an
-  engineer hand-edits the link. Minor, but I'd quote it in a ticket.
-- Copy link works (verified the full URL with both tz params landed on the clipboard).
+The problem is my whole reason for being here: I write a ticket and want to paste the
+cron + the plain-English gloss + a shareable link. In CRONTAB FILE mode there is NO copy
+button and NO permalink/share anywhere — I'd have to hand-retype every English line into
+Notion/Asana. In SINGLE mode the "Copy" button copies the raw expression (`*/15 9-17 * * MON-FRI`),
+NOT the English ("Every 15 minutes, between 09:00 AM..."), and "Copy link" works but only for
+one expression. So even for a single job I can't one-click grab the English sentence I came for.
 
-## On the timezone feature specifically
-Genuinely useful and the killer reason I'd paste this into a ticket. "Runs in Berlin ·
-shown in Tokyo" is the one line that makes BOTH an engineer (cares where it executes) and a
-stakeholder (cares what time they'll see it) understand the schedule without a Slack
-thread. It persists into the share link and round-trips perfectly. Only gripe is the
-clarity of WHICH selector is source vs display when scanning fast on mobile — fix the
-proximity/labeling and this is a 9.
+```json
+{
+  "name": "Sam",
+  "clarity": "Yes",
+  "value": "No",
+  "advocacy": 5,
+  "advocacy_reason": "Crontab mode is accurate and the toggle is obvious, but it fails my core job: I can't copy the plain-English gloss anywhere (Copy grabs the raw cron, not the sentence), and crontab mode has zero copy/share/permalink — so I'd retype every line into a ticket by hand. A reference tool, not a 'paste into the ticket' tool. Until the English text is copyable and the whole crontab is shareable by link, I won't bring this up to my team.",
+  "found_crontab_mode": "Yes",
+  "most_important_quote": "In CRONTAB FILE mode there is no Copy and no Copy link at all — copy-matches: 0, link/share-matches: 0.",
+  "bugs_or_friction": [
+    "CRONTAB FILE mode has NO copy button and NO permalink/share — cannot get results into a ticket without retyping",
+    "Single-mode 'Copy' copies the raw cron expression, not the plain-English gloss I actually want to paste",
+    "No way to copy the English description (the gloss) in EITHER mode",
+    "No shareable link for a whole crontab (only single expressions get a permalink)",
+    "Mobile: long results are a tall scroll with no per-row copy, painful between meetings"
+  ]
+}
+```

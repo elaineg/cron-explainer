@@ -1,41 +1,19 @@
-# Marcus — Round 1
-- advocacy: 9
-- clarity: Yes
-- value: Yes
+# Round 1 — Marcus (Frontend engineer, 2yr, high-tech, desktop Chrome + devtools)
 
-## What I did
-Loaded cold on desktop Chrome. Header "Cron Explainer" + subhead ("Paste a cron expression
-and see what it means in plain English, plus its next 5 run times — or describe a schedule
-in English and get the cron expression generated for you") told me exactly what this is in
-~5 seconds. This is the thing I google crontab.guru for, minus the manual field-building.
-- Typed "every weekday at 9am" in the English box → got `0 9 * * 1-5` instantly. Exactly my
-  motivating use case. The "Generated: 0 9 * * 1-5" echo + example chips are a nice touch.
-- Pasted `*/5 * * * *` → "Every 5 minutes" + correct next-5 runs with "in X hours/days"
-  relative labels.
-- Copy button: clipboard genuinely contained `*/5 * * * *` (verified read, not just a label
-  flip). Permalink updates with state (`?src=UTC&tz=UTC`) — shareable, good for a Slack drop.
-- Invalid input `this is not cron 99 99` → clear inline error "Not a valid cron expression:
-  Expression contains invalid values: 'this'". Good.
-- Switched Unix/Quartz/AWS dialects — all present and working.
-- Zero console errors across every flow. No CSS jank: tight alignment, toggles read clean.
-
-## Friction (brutally honest)
-- Two sets of identical-looking Local/UTC pill toggles (one under "THIS SCHEDULE RUNS IN",
-  one in the runs card) could be momentarily confused at a glance since they look the same —
-  the section labels save it, but a hair more visual differentiation would remove all doubt.
-- The "DEVELOPERS" API blurb notes the API `?tz=` means SOURCE while the UI `?tz=` means
-  DISPLAY. As an engineer I caught it, but that inversion is a footgun for anyone scripting
-  the API after using the UI. Minor, but I'd flag it in our Slack.
-- That's it. Nothing blocking.
-
-## On the timezone feature specifically
-This is the part I was most skeptical of and it nailed it. Default state (source Local,
-display Local) shows 9:00 AM. I set SOURCE → UTC (I run server/Vercel cron): the runs card
-immediately showed 02:00 AM with the banner "Runs in UTC · shown in America/Los_Angeles" —
-exactly right (0 9 UTC = 02:00 PDT, UTC-7). Setting DISPLAY → UTC too snapped it back to
-09:00 and the banner disappeared (only shows when source ≠ display, which is the correct
-behavior). The "Servers usually run cron in UTC — switch the source to UTC if this runs on
-a server" nudge is exactly the mental-model correction I need — I've been bitten by "9am in
-my crontab.guru preview" vs "9am UTC on the box" before. The source-vs-display distinction
-is clear and the math is correct. This is the feature that takes it from "neat" to
-"pinned in our team Slack."
+```json
+{
+  "name": "Marcus",
+  "clarity": "Yes",
+  "value": "Yes",
+  "advocacy": 8,
+  "advocacy_reason": "This is the tool I actually wanted: I type 'every weekday at 9am' and get 0 9 * * 1-5 with a plain-English readback and next-5 runs — no more hand-building on crontab.guru. The CRONTAB FILE mode beats crontab.guru outright (guru does one expression at a time; this explains my whole Vercel/GH-Actions crontab line-by-line, labels env vars and comments, and isolates invalid lines with precise per-line errors). Quartz/AWS dialects + a documented GET /api/explain endpoint are a pleasant surprise for an engineer. Held back from 9-10 because the English parser is brittle: 'every 15 minutes during business hours' and 'at midnight every day' both fail with no suggestion of what phrasing works — that's the exact moment I'd bounce back to googling. Fix the NL coverage/forgiveness and this is a 9 I'd drop in team Slack.",
+  "found_crontab_mode": "Yes",
+  "most_important_quote": "The SINGLE EXPRESSION · CRONTAB FILE toggle sits right above the input, impossible to miss — and crontab-file mode explains my entire file at once, which crontab.guru can't do.",
+  "bugs_or_friction": [
+    "NL parser too brittle: 'every 15 minutes during business hours' -> 'Couldn't read that schedule'; 'at midnight every day' silently produces nothing. Common phrasings should resolve or suggest the nearest example.",
+    "On NL parse failure the previously-generated valid cron stays in the Cron expression box — ambiguous whether the result is stale or current.",
+    "Copy button label changes to 'Copied' (good) but clipboard read was blocked in my headless test env — copy verified visually, not reported as a regression.",
+    "Toggle is a black/white text-pill; active state reads fine but a slightly stronger visual affordance (it looks like static text until hovered) would help first-timers know it's clickable."
+  ]
+}
+```

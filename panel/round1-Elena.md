@@ -1,37 +1,33 @@
-# Elena — Round 1
-- advocacy: 8
-- clarity: Yes
-- value: Yes
+# Round 1 — Elena (Engineering manager, mostly on phone between meetings)
 
-## What I did
-Opened cold on my phone (375px) between meetings. Headline "Cron Explainer" + the
-sub-line told me exactly what it does in ~5s. It loads pre-filled with a sample so I
-saw a real output immediately — no blank-state setup, which is the only reason I didn't
-bounce. Ran my actual incident scenario: pasted `0 2 * * *` (a "nightly 2am" job someone
-swore should've fired at 2am their time), set THIS SCHEDULE RUNS IN → UTC (it's a server),
-left display on Local. Instantly got "At 02:00 AM" in English and next runs at **07:00 PM
-America/Los_Angeles** with "Runs in UTC · shown in America/Los_Angeles" right above the
-times. That's the whole incident answered in two taps. Flipped display to UTC and times
-correctly switched to 02:00 AM. Permalink carried `?src=UTC` so I could drop it in a Slack
-thread and an engineer sees the same thing — that's the bit that earns a recommend.
+I loaded it on my phone-sized screen. Title "Cron Explainer", a one-line "Paste a cron
+expression and see what it means in plain English, plus its next 5 run times," and right
+under it the toggle SINGLE EXPRESSION / CRONTAB FILE. Pasted `0 2 * * *` and instantly got
+"At 02:00 AM" plus the next 5 runs with "in 16 hours" relative labels. That is exactly the
+incident-review move: paste, glance, know whether it could've fired when they claimed —
+without pinging an engineer. Switched to CRONTAB FILE, pasted a real backup crontab with a
+comment and a junk line; got one clean row per job, comments ignored, and the bad line
+flagged "Not a valid cron expression: it has 2 fields." No setup, no signup, nothing sent.
 
-## Friction (brutally honest)
-- I can't enter a CLAIMED timestamp and get a yes/no "it would/wouldn't have fired at
-  3:07am." I have to read the schedule and reason myself. For an incident-blame moment
-  that's the one thing I actually wanted — the tool gets me 90% there but makes me do the
-  last mental step. This is what holds it at 8, not 9.
-- "Previous run" is the most incident-relevant line ("did it run when they claim?") but
-  it's small grey text below the next-runs and easy to miss on a phone. I'd make it bigger.
-- The dialect (Unix/Quartz/AWS) and English-generator sections are nice but add scroll
-  on mobile between my input and the answer; I scrolled past the English generator I didn't
-  need to reach my next-runs.
+What holds it back from a 9: in an incident review I'm checking "did it run at 3:14am
+yesterday?" — this only shows NEXT runs, not PAST ones. I had to mentally back-compute. A
+"last 5 runs" or a "did it run at <time>?" check would make it a 9 for my exact use. Also
+the Local/UTC source-vs-display split is the right call but is a lot of controls to parse
+on a phone in 30 seconds; I'd want UTC obviously front-and-center since servers run UTC.
 
-## On the timezone feature specifically
-This is the reason I'd recommend it. Source vs display is legible at a glance: SOURCE
-("THIS SCHEDULE RUNS IN") sits up by the expression, DISPLAY ("Show times in") sits in the
-results card, and the "Runs in X · shown in Y" sentence removes any doubt about which is
-which. Cost me well under 30s. The default "source = browser-local, hint: servers run in
-UTC" plus a one-tap UTC switch is exactly the right framing for a server-vs-claimed-local
-confusion. "Runs entirely in your browser — nothing is sent" reassures me about pasting a
-prod schedule. Only nit: two near-identical Local/UTC toggle pairs on a narrow screen could
-be momentarily confused if the labels weren't there — the labels save it.
+```json
+{
+  "name": "Elena",
+  "clarity": "Yes",
+  "value": "Yes",
+  "advocacy": 8,
+  "advocacy_reason": "Fast, zero setup, works on my phone, and the plain-English + next-runs is genuinely useful for me and my reports. Not a 9 because incident reviews are about PAST runs and this only shows next runs — I still have to back-compute whether it fired at the disputed time.",
+  "found_crontab_mode": "Yes",
+  "most_important_quote": "Paste 0 2 * * * and instantly see 'At 02:00 AM' + next 5 runs with 'in 16 hours' — that's the incident-review answer without pinging an engineer.",
+  "bugs_or_friction": [
+    "No PAST-run view: incident reviews ask 'did it run at 3:14am yesterday?'; only next-5-runs shown, forcing mental back-compute",
+    "Local/UTC source AND display selectors are a lot to parse on a phone in 30s; servers run UTC so UTC should be more prominent",
+    "Minor: had to read the help text to be sure which timezone the run-times were in"
+  ]
+}
+```

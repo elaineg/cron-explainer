@@ -1,39 +1,16 @@
-# Aisha — Round 1
-- advocacy: 8
-- clarity: Yes
-- value: Yes
-
-## What I did
-Opened cold on desktop. The H1 "Cron Explainer" + subhead ("Paste a cron expression and see
-what it means in plain English, plus its next 5 run times...") told me exactly what this is in
-under 10 seconds. Read the prefilled `*/15 9-17 * * MON-FRI` → "Every 15 minutes, between
-09:00 AM and 05:59 PM, Monday through Friday." Correct, plain, no jargon. Exercised BOTH tz
-selectors: set SOURCE ("This schedule runs in") to UTC while DISPLAY ("Show times in") stayed
-Local. The run times correctly shifted (UTC 9–17 → 02:00–03:00 LA), the divergence subtitle
-"Runs in UTC · shown in America/Los_Angeles" appeared, and the permalink picked up `?src=UTC`.
-Zero console errors throughout.
-
-## Friction (brutally honest)
-- The source-tz block has THREE stacked gray helper lines mashed together at identical weight:
-  "Servers usually run cron in UTC...", the dialect line "5-field Unix, 6/7-field Quartz...",
-  and "Runs entirely in your browser — nothing is sent." They belong to three different
-  controls but read as one undifferentiated gray paragraph. As a designer this is the one spot
-  that feels un-considered — the dialect helper should sit under DIALECT, not below the tz
-  pills. Needs spacing/grouping, not more copy.
-- Mild redundancy: "NEXT 5 RUNS — America/Los_Angeles" header AND a second line "Runs in UTC ·
-  shown in America/Los_Angeles" both name the display tz. Reads slightly doubled.
-- The tz dropdowns are custom comboboxes, not native selects — fine, but I'd want them keyboard-
-  reachable (couldn't verify focus ring in a screenshot).
-
-## On the timezone feature specifically
-This is CRAFTED, and that's why I'd recommend it. The two labels — "This schedule runs in" vs
-"Show times in" — are the clearest source-vs-display framing I've seen; no "TZ1/TZ2" nonsense.
-The "Runs in X · shown in Y" line is elegant precisely because it stays HIDDEN until the two
-diverge (no noise when they match) — that restraint is the considered touch I advocate for.
-Source-on-UTC nudge copy is genuinely useful for the server-cron case a dev would hand me.
-What holds it back from a 9: the gray helper pile-up under the source pills, and the doubled
-display-tz line. Tighten those two and this is a loud-recommend tool.
-
 ```json
-{"tester": 1, "round": 1, "clarity": "Yes", "value": "Yes", "advocacy": 8, "topComplaints": ["three stacked gray helper lines under source-tz pills read as one undifferentiated block; dialect helper is misplaced below tz controls", "display tz named twice (NEXT 5 RUNS header + 'shown in' line) reads redundant"], "priorConcernsAddressed": "n/a"}
+{
+  "name": "Aisha",
+  "clarity": "Yes",
+  "value": "Yes",
+  "advocacy": 9,
+  "advocacy_reason": "As a designer who gets cron strings dumped into specs by devs, this nails the exact job in plain English ('At 03:00 AM, only on Monday') AND shows the next 5 runs with relative timing, which is what I actually want to sanity-check a scheduled design-system sync. The CRONTAB FILE mode is genuinely considered craft: per-line rows with small muted COMMENT/ENV/JOB/INVALID type labels, dialect chip (UNIX), a typographically clean summary count ('2 JOBS · 1 ENVIRONMENT VARIABLE · 2 COMMENTS · 2 INVALID LINES' with proper middots), precise inline errors ('hours part must be >= 0 and <= 23') in real red, and a placeholder/empty state that teaches you what to paste. Spacing, tone, and empty states all feel intentional. Not a 10 because the comment/env LINE TEXT renders at the same near-black weight as valid jobs — the de-emphasis lives only in the tiny gray label, so jobs don't pop the way I'd design it; and the toggle, while findable, is a quiet text pill that a less-attentive user could skim past.",
+  "found_crontab_mode": "Yes",
+  "most_important_quote": "2 JOBS · 1 ENVIRONMENT VARIABLE · 2 COMMENTS · 2 INVALID LINES — the summary count plus per-line type labels made the whole file instantly legible without me parsing a single field.",
+  "bugs_or_friction": [
+    "De-emphasized rows aren't actually de-emphasized: comment (# Design-system sync) and env (SHELL=/bin/bash) line text computes to the same near-black color as valid job text — only the small gray label is muted. Valid jobs don't visually pop above the noise. As a designer I'd dim the comment/env line content too.",
+    "Toggle (SINGLE EXPRESSION · CRONTAB FILE) is findable but is a low-contrast text pill; the inactive side reads almost like static label text, so discoverability relies on the user being attentive. A clearer segmented control with a visible track would sell the two-mode model faster.",
+    "Minor: in single mode the explanation header 'IN PLAIN ENGLISH' sits to the left while a 'Translate to' control sits right — fine, but the two-mode app has two different 'translate' affordances (English->cron in single, none in file) which could read as inconsistent to a first-timer."
+  ]
+}
 ```

@@ -187,6 +187,35 @@ describe("englishToCron — rejections (never a silent guess)", () => {
   });
 });
 
+/**
+ * DEFECT-2 fix: every phrase advertised in the "Supported phrasings" hint MUST parse.
+ * If this test breaks, update the UI hint text — never the other way around.
+ */
+describe("englishToCron — advertised hint phrases all parse (defect-2 guard)", () => {
+  const HINT_PHRASES = [
+    "every weekday at 9am",
+    "every 15 minutes",
+    "first of the month at noon",
+    "every monday at 8am",
+    "midnight every day",
+  ];
+
+  it.each(HINT_PHRASES)(
+    "hint phrase '%s' parses to a valid cron expression",
+    (phrase) => {
+      expect(() => englishToCron(phrase)).not.toThrow();
+      const cron = englishToCron(phrase);
+      expect(cron).toMatch(/^[\d*,/\-]+( [\d*,/\-]+){4}$/);
+    }
+  );
+
+  it("the formerly-broken phrase 'at midnight every day' is NOT in the hint", () => {
+    // 'at midnight every day' was incorrectly advertised and fails the parser.
+    // Guard that it stays removed — if someone re-adds it, this test will catch it.
+    expect(() => englishToCron("at midnight every day")).toThrow();
+  });
+});
+
 describe("englishToCron — output is always accepted by explainCron", () => {
   const FROM = new Date("2026-06-11T12:00:00.000Z");
   const phrases = [

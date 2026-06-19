@@ -1,42 +1,17 @@
-# Wen — Round 1
-- advocacy: 8
-- clarity: Yes
-- value: Yes
-
-## What I did
-Cold open: "Cron Explainer" + the one-line description ("see what it means in plain English,
-plus its next 5 run times") told me what this is in <10s. Pasted my real job `0 6 * * *`.
-Got "At 06:00 AM" + next 5 runs labeled "NEXT 5 RUNS — America/Los_Angeles". Then the core
-test: set SOURCE ("THIS SCHEDULE RUNS IN") = UTC, left DISPLAY ("Show times in") = Local.
-Cross-checked the math two ways: the /api/explain?tz=UTC endpoint returns raw `06:00:00.000Z`
-ISO instants, and my own zoneinfo conversion of 6am UTC → LA = 11:00 PM prev day. The UI
-showed exactly 11:00 PM. Numbers are honest — no invisible transformation, which is the
-thing I distrust most.
-
-## Friction (brutally honest)
-- The two selectors are physically far apart: SOURCE sits up by the input, DISPLAY is buried
-  down in the NEXT 5 RUNS block. On first pass I only saw ONE timezone control and almost
-  concluded the "answer 6am-in-my-tz" feature was missing. I had to scroll to find the second
-  one. They should be visually paired, or at least the source label should hint a display
-  control exists below.
-- API/UI param naming is INVERTED and that's a real footgun: the docs literally say "the API
-  ?tz= sets the execution/source timezone (default UTC); in the UI ?tz= sets the display
-  timezone and ?src= sets the source timezone." If I script a dbt-schedule audit against the
-  API and then eyeball it in the UI, the same query string means different things. As a data
-  person I'd get burned by this. Pick one meaning for ?tz=.
-- "At 06:00 AM" stays the headline even when source=UTC — technically correct (it's the
-  schedule's own definition) but for half a second it fights the 11:00 PM list below. A
-  micro-label like "(06:00 in UTC)" on the plain-English line would kill the ambiguity.
-- No CSV/bulk export. I audit many DAGs at once; I'd want to paste a column of expressions
-  or get the next-runs as CSV. One-at-a-time is fine for spot checks, not for a sweep.
-
-## On the timezone feature specifically
-This nailed my exact worry. With SOURCE=UTC / DISPLAY=Local the tool showed the disclosure
-line "Runs in UTC · shown in America/Los_Angeles" (only appears when they differ — good
-restraint), and converted the 6am-UTC job to 11:00 PM my time, matching my independent
-zoneinfo check. The permalink even persisted `?src=UTC`, so I can paste a stakeholder the
-exact "no, it fires at 11pm your time" proof. Source-vs-display is the RIGHT mental model and
-once both controls are in view it's clear. The only legibility risk is discoverability of the
-second selector (see friction). Privacy line "Runs entirely in your browser — nothing is sent"
-plus the raw-UTC ISO API earns my data trust. Not a 9 only because of the split-selector
-discoverability and the inverted API/UI ?tz= naming — both fixable.
+```json
+{
+  "name": "Wen",
+  "clarity": "Yes",
+  "value": "Yes",
+  "advocacy": 9,
+  "advocacy_reason": "It nails the exact thing I distrust most: invisible timezone assumptions. The explicit RUNS IN (source/server tz) vs SHOW TIMES IN (display tz) split, with a 'Runs in UTC · shown in America/Los_Angeles' line and correct conversion (0 6 * * * on a UTC server = 11pm PDT, not 6am local), is what I'd otherwise verify by hand or in a Python REPL. The crontab-file mode read my dbt/Airflow file line-by-line with accurate per-line classification and an honest summary count. Not a 10 only because I couldn't confirm whether an inline TZ=America/Los_Angeles env var in the pasted crontab actually drives that job's evaluation, or if only the RUNS IN selector does — for a data-hygiene person that ambiguity matters.",
+  "found_crontab_mode": "Yes",
+  "most_important_quote": "Runs in UTC · shown in America/Los_Angeles — and 0 6 * * * correctly listed 11:00 PM the prior day. That's the stale-dashboard bug I get paged for, caught before deploy.",
+  "bugs_or_friction": [
+    "Unclear whether an in-file 'TZ=America/Los_Angeles' env line overrides the RUNS IN selector for that job. As an analyst who pastes real crontabs with TZ= lines, I need to know which one wins — right now TZ= is just labeled ENV and de-emphasized, with no indication it affects evaluation. If it's ignored, the explanation could be silently wrong for a tz-bearing crontab.",
+    "No copy/export of the whole explained crontab (single-expression mode has Copy + permalink; file mode has neither). I'd want to paste the plain-English breakdown into a Slack thread or runbook.",
+    "Summary count line '4 JOBS · 2 ENVIRONMENT VARIABLES · 5 COMMENTS · 1 INVALID LINE' is good but sits small/grey above results; could double as quick QA that I pasted what I thought I pasted.",
+    "DEVELOPERS note says API ?tz= sets execution tz but UI ?tz= sets DISPLAY tz and ?src= sets source — that UI/API param inversion is a footgun I'd hit building a Looker/Sheets link; called out but easy to misread."
+  ]
+}
+```

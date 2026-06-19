@@ -1,43 +1,24 @@
-# Jules — Round 1
-- advocacy: 9
-- clarity: Yes
-- value: Yes
+Jules — Content & community marketer, medium tech, 50/50 desktop/mobile. Round 1.
 
-## What I did
-Cold-opened on desktop. No login wall (I'd have bounced instantly) — the line
-"Runs entirely in your browser — nothing is sent" is exactly the reassurance I look for.
-H1 "Cron Explainer" + the subhead ("Paste a cron expression... or describe a schedule in
-English and get the cron expression generated for you") told me what this is in ~10s.
-Typed my real task "every 6 hours on weekends" into the plain-English box → it generated
-`0 */6 * * 0,6` and confirmed in English "On the hour, every 6 hours, only on Sunday and
-Saturday." Next 5 runs rendered correctly, plus a "Previous run" line (nice). Permalink
-encodes my expression AND tz settings (`&src=utc`) so I can paste it into a Discord thread
-without anyone signing up. Also checked mobile at 375px.
-
-## Friction (brutally honest)
-- Almost nothing blocking. The page is dense — SOURCE tz sits way up top near the cron
-  field, but DISPLAY tz lives down in the NEXT-5-RUNS block. On first pass I didn't realize
-  the two selectors were related until I scrolled and saw the "Runs in X · shown in Y" line
-  tie them together. A medium-tech user gets there; a less patient one might miss one of them.
-- The Local/UTC buttons LOOK like the only source options. I only discovered the box beside
-  them is a full type-anything IANA search by poking at it ("Berlin" → Europe/Berlin worked).
-  That's a great feature that's nearly invisible — looks like a read-only label, not an input.
-- Two separate "Local" and two "UTC" toggles on one screen is mildly confusing at a glance;
-  the section headers (THIS SCHEDULE RUNS IN / Show times in) do disambiguate, but only if
-  you read them.
-- Mobile (375px): clean, no horizontal scroll, both selectors tappable, indicator visible.
-  Would genuinely use this on my phone.
-
-## On the timezone feature specifically
-This is the killer feature for my exact use case and it WORKS. I set source = UTC (where my
-self-hosted bot runs) and display = my local LA — the first run flipped from "Sat 12:00 AM"
-to "Fri 05:00 PM," correctly showing the cross-day shift a weekend-cron causes. The combined
-"Runs in UTC · shown in America/Los_Angeles" badge appears only when they differ and collapses
-to plain "NEXT 5 RUNS — UTC" when they match — that's the right behavior and stops me from
-second-guessing. Setting "server runs in Berlin, show me in LA" worked too. This is the thing
-that would've saved me a headache configuring Uptime Kuma. Only reason it's a 9 not a 10: the
-source typeahead being disguised as a label, and the two selectors being far apart on screen.
+I landed here to translate "every 6 hours on weekends" for a self-hosted scheduler
+without making an account. That exact phrase worked: typed it in the plain-English box,
+got `0 */6 * * 0,6` plus a readback ("On the hour, every 6 hours, only on Sunday and
+Saturday") and next run times. Then tried both modes. No login asked, "Runs entirely
+in your browser — nothing is sent" reassured me.
 
 ```json
-{"tester": 3, "round": 1, "clarity": "Yes", "value": "Yes", "advocacy": 9, "topComplaints": ["Source-tz typeahead looks like a read-only label, not an input — easy to miss it accepts any IANA zone", "SOURCE and DISPLAY selectors are far apart on the page; their relationship isn't obvious until you scroll and notice the 'Runs in X · shown in Y' line"], "priorConcernsAddressed": "n/a"}
+{
+  "name": "Jules",
+  "clarity": "Yes",
+  "value": "Yes",
+  "advocacy": 9,
+  "advocacy_reason": "It nailed my actual job in one shot — English -> cron with no account, and the readback let me trust it. The CRONTAB FILE mode reading my whole file line-by-line (4 JOBS · 2 COMMENTS · 1 INVALID LINE), keeping comments attached and flagging the bad line with a real reason, is genuinely better than crontab.guru for auditing a file. Timezone source/display split is exactly the gotcha I hit with server cron. Not a flat 10 only because cron isn't a daily task for me and the dense developer/API block at the bottom is noise for a marketer — but I'd recommend it unprompted to anyone wiring up a bot.",
+  "found_crontab_mode": "Yes",
+  "most_important_quote": "Runs entirely in your browser — nothing is sent.",
+  "bugs_or_friction": [
+    "None blocking. The bidirectional English<->cron is the killer feature but the 'Or describe a schedule in plain English' box sits BELOW the cron box and timezone panel — I almost missed that I could go English-first; consider surfacing it higher for non-devs.",
+    "The DEVELOPERS / API paragraph at the very bottom is dense jargon ('?tz= sets execution/source timezone') that a marketer reader bounces off; fine to keep but it shouldn't be the last thing on a tiny mobile screen.",
+    "Copy verified working (clipboard got the expression); label stays 'Copy link' on permalink button rather than flashing 'Copied' — minor confirmation polish."
+  ]
+}
 ```
